@@ -1,0 +1,3 @@
+[submodule "src/zig-regex"]
+	path = src/zig-regex
+	url = https://github.com/tiehuis/zig-regex
