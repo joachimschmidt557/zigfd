@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const regex = @import("zig-regex/regex.zig");
+const regex = @import("zig-regex/src/regex.zig");
 const clap = @import("zig-clap/index.zig");
 
 const recursive = @import("recursiveWalk.zig");
@@ -27,6 +27,10 @@ pub fn main() anyerror!void {
         clap.Param([]const u8).flag(
             "Display this help and exit.",
             clap.Names.both("help"),
+        ),
+        clap.Param([]const u8).flag(
+            "Display version info and exit.",
+            clap.Names.both("version"),
         ),
         clap.Param([]const u8).flag(
             "Include hidden files and directories",
@@ -61,13 +65,17 @@ pub fn main() anyerror!void {
     var args = try clap.ComptimeClap([]const u8, params).parse(dir_allocator, clap.args.OsIterator, &iter);
     defer args.deinit();
 
-    // clap.help is a function that can print a simple help message, given a
-    // slice of Param([]const u8). There is also a helpEx, which can print a
-    // help message for any Param, but it is more verbose to call.
+    // Flags
     if (args.flag("--help"))
         return try clap.help(stdout, params);
-    for (args.positionals()) |pos|
-        std.debug.warn("{}\n", pos);
+    if (args.flag("--version"))
+        return try stdout_file.write("zigfd\n");
+
+    var re : ?regex.Regex = null;
+    // Positionals
+    for (args.positionals()) |pos| {
+        re = try regex.Regex.compile(allocator, pos);
+    }
 
 
     // Get current working directory
