@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const regex = @import("zig-regex/regex.zig");
+const clap = @import("zig-clap");
 
 const recursive = @import("recursiveWalk.zig");
 //const iterative = @import("iterativeWalk.zig");
