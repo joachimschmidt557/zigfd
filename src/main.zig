@@ -82,5 +82,5 @@ pub fn main() anyerror!void {
     var cwd_buf: [std.fs.MAX_PATH_BYTES]u8 = undefined;
     const search_path = try std.os.getcwd(&cwd_buf);
 
-    try recursive.walkDir(allocator, search_path);
+    try recursive.walkDir(allocator, search_path, stdout_file);
 }

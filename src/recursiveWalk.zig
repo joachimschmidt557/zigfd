@@ -2,7 +2,7 @@ const std = @import("std");
 
 const printer = @import("printer.zig");
 
-pub fn walkDir(allocator: *std.mem.Allocator, path: []u8) anyerror!void {
+pub fn walkDir(allocator: *std.mem.Allocator, path: []u8, out:std.fs.File) anyerror!void {
     var dir = try std.fs.Dir.open(allocator, path);
     defer dir.close();
 
@@ -10,7 +10,7 @@ pub fn walkDir(allocator: *std.mem.Allocator, path: []u8) anyerror!void {
     defer full_entry_buf.deinit();
 
     while (try dir.next()) |entry| {
-        try printer.printEntry(entry);
+        try printer.printEntry(entry, out);
 
         if (entry.kind == std.fs.Dir.Entry.Kind.Directory) {
             try full_entry_buf.resize(path.len + entry.name.len + 1);
@@ -20,7 +20,7 @@ pub fn walkDir(allocator: *std.mem.Allocator, path: []u8) anyerror!void {
             full_entry_path[path.len] = std.fs.path.sep;
             std.mem.copy(u8, full_entry_path[path.len + 1 ..], entry.name);
      
-            try walkDir(allocator, full_entry_path);
+            try walkDir(allocator, full_entry_path, out);
         }
     }
 
