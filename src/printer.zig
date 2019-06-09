@@ -1,6 +1,8 @@
 const std = @import("std");
 
-pub fn printEntry(entry: std.fs.Dir.Entry, out:std.fs.File) !void {
-    try out.write(entry.name);
+const iterative = @import("iterativeWalk.zig");
+
+pub fn printEntry(entry: iterative.Entry, out:std.fs.File) !void {
+    try out.write(entry.absolutePath);
     try out.write("\n");
 }

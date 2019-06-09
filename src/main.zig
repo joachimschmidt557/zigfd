@@ -85,8 +85,12 @@ pub fn main() anyerror!void {
 
     var walker = try iterative.IterativeWalker.init(allocator, search_path);
     while (try walker.next()) |entry| {
-        try printer.printEntry(entry, stdout_file);
+        if (re) |pattern| {
+            if (try re.?.match(entry.name)) {
+                try printer.printEntry(entry, stdout_file);
+            }
+        } else {
+            try printer.printEntry(entry, stdout_file);
+        }
     }
-
-    //try recursive.walkDir(allocator, search_path, stdout_file);
 }
