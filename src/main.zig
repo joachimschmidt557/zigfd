@@ -4,7 +4,8 @@ const regex = @import("zig-regex/src/regex.zig");
 const clap = @import("zig-clap/index.zig");
 
 const recursive = @import("recursiveWalk.zig");
-//const iterative = @import("iterativeWalk.zig");
+const iterative = @import("iterativeWalk.zig");
+const printer   = @import("printer.zig");
 
 pub fn main() anyerror!void {
     // Set up allocators
@@ -82,5 +83,10 @@ pub fn main() anyerror!void {
     var cwd_buf: [std.fs.MAX_PATH_BYTES]u8 = undefined;
     const search_path = try std.os.getcwd(&cwd_buf);
 
-    try recursive.walkDir(allocator, search_path, stdout_file);
+    var walker = try iterative.IterativeWalker.init(allocator, search_path);
+    while (try walker.next()) |entry| {
+        try printer.printEntry(entry, stdout_file);
+    }
+
+    //try recursive.walkDir(allocator, search_path, stdout_file);
 }

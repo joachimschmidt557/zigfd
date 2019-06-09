@@ -25,3 +25,7 @@ pub fn walkDir(allocator: *std.mem.Allocator, path: []u8, out:std.fs.File) anyer
     }
 
 }
+
+pub const RecursiveWalter = struct {
+
+};

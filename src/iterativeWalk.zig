@@ -1,34 +1,59 @@
 const std = @import("std");
 
-pub fn walkDir(allocator: *std.mem.Allocator, path: []u8) !void {
-    var stack = std.atomic.Stack([]u8).init();
-    const node = try allocator.create(std.atomic.Stack([]u8).Node);
-    node.* = std.atomic.Stack([]u8).Node {
-        .next = undefined,
-        .data = path,
-    };
-    stack.push(node);
-    while (stack.pop()) |item| {
-        const data = item.data;
-        var dir = try std.fs.Dir.open(allocator, data);
-        defer dir.close();
-        while (try dir.next()) |entry| {
-            try printEntry(entry);
+pub const IterativeWalker = struct {
+    pathsToScan : std.atomic.Queue([]u8),
+    currentDir  : std.fs.Dir,
+    currentPath : []u8,
+    allocator   : *std.mem.Allocator,
+
+    pub const Self = @This();
+
+    pub fn init(alloc: *std.mem.Allocator, path: []u8) !Self {
+        return Self{
+            .pathsToScan = std.atomic.Queue([]u8).init(),
+            .currentDir  = try std.fs.Dir.open(alloc, path),
+            .currentPath = path,
+            .allocator   = alloc,
+        };
+    }
+
+    pub fn next(self: *Self) anyerror!?std.fs.Dir.Entry {
+        if (try self.currentDir.next()) |entry| {
             if (entry.kind == std.fs.Dir.Entry.Kind.Directory) {
-                const new_node = try allocator.create(std.atomic.Stack([]u8).Node);
-                var new_dir_path = entry.name;
-                new_node.* = std.atomic.Stack([]u8).Node {
+                var full_entry_buf = std.ArrayList(u8).init(self.allocator);
+                try full_entry_buf.resize(self.currentPath.len + entry.name.len + 1);
+     
+                const full_entry_path = full_entry_buf.toSlice();
+                std.mem.copy(u8, full_entry_path, self.currentPath);
+                full_entry_path[self.currentPath.len] = std.fs.path.sep;
+                std.mem.copy(u8, full_entry_path[self.currentPath.len + 1 ..], entry.name);
+
+                const new_dir = try self.allocator.create(std.atomic.Queue([]u8).Node);
+                new_dir.* = std.atomic.Queue([]u8).Node {
                     .next = undefined,
-                    .data = new_dir_path,
+                    .prev = undefined,
+                    .data = full_entry_path,
                 };
-                stack.push(new_node);
+
+                self.pathsToScan.put(new_dir);
             }
+            return entry;
+        } else {
+            // No entries left in the current dir
+            self.currentDir.close();
+            while (self.pathsToScan.get()) |node| {
+                self.currentPath = node.data;
+                self.currentDir = try std.fs.Dir.open(self.allocator, self.currentPath);
+
+                self.allocator.destroy(node);
+
+                if (try self.next()) |entry| {
+                    return entry;
+                } else {
+                    continue;
+                }
+            }
+            return null;
         }
     }
-}
-
-pub fn printEntry(entry: std.fs.Dir.Entry) !void {
-    const stdout_file = try std.io.getStdOut();
-    try stdout_file.write(entry.name);
-    try stdout_file.write("\n");
-}
+};
