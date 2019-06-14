@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const regex = @import("zig-regex/src/regex.zig");
-const clap = @import("zig-clap/index.zig");
+const clap = @import("zig-clap/clap.zig");
 
 const recursive = @import("recursiveWalk.zig");
 const iterative = @import("iterativeWalk.zig");
@@ -23,35 +23,39 @@ pub fn main() anyerror!void {
     const stdout = &stdout_out_stream.stream;
 
     // These are the command-line args
-    const params = comptime []clap.Param([]const u8){
+    const params = comptime [_]clap.Param([]const u8){
         // Flags
-        clap.Param([]const u8).flag(
-            "Display this help and exit.",
-            clap.Names.both("help"),
-        ),
-        clap.Param([]const u8).flag(
-            "Display version info and exit.",
-            clap.Names.both("version"),
-        ),
-        clap.Param([]const u8).flag(
-            "Include hidden files and directories",
-            clap.Names{
+        clap.Param([]const u8){
+            .id = "Display this help and exit.",
+            .names = clap.Names{ .short = 'h', .long = "help" },
+        },
+        clap.Param([]const u8){
+            .id = "Display version info and exit.",
+            .names = clap.Names{ .short = 'v', .long = "version" },
+        },
+        clap.Param([]const u8){
+            .id = "Include hidden files and directories",
+            .names = clap.Names{
                 .short = 'H',
                 .long = "hidden",
-            }
-        ),
+            },
+        },
 
         // Options
-        clap.Param([]const u8).option(
-            "Set a limit for the depth",
-            clap.Names{
+        clap.Param([]const u8){
+            .id = "Set a limit for the depth",
+            .names = clap.Names{
                 .short = 'd',
                 .long = "max-depth",
-            }
-        ),
+            },
+            .takes_value = true,
+        },
 
         // Positionals
-        clap.Param([]const u8).positional("PATTERN"),
+        clap.Param([]const u8){
+            .id = "PATTERN",
+            .takes_value = true,
+        },
     };
 
     // We then initialize an argument iterator. We will use the OsIterator as it nicely
