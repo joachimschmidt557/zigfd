@@ -3,23 +3,30 @@ const std = @import("std");
 pub const Entry = struct {
     name: []const u8,
     absolutePath: []u8,
+    relativePath: []u8,
     kind: std.fs.Dir.Entry.Kind,
 };
 
 pub const IterativeWalker = struct {
-    pathsToScan : std.atomic.Queue([]u8),
-    currentDir  : std.fs.Dir,
-    currentPath : []u8,
-    allocator   : *std.mem.Allocator,
+    pathsToScan  : std.atomic.Queue([]u8),
+    allocator    : *std.mem.Allocator,
+    maxDepth     : u32,
+
+    currentDir   : std.fs.Dir,
+    currentPath  : []u8,
+    currentDepth : u32,
 
     pub const Self = @This();
 
     pub fn init(alloc: *std.mem.Allocator, path: []u8) !Self {
         return Self{
-            .pathsToScan = std.atomic.Queue([]u8).init(),
-            .currentDir  = try std.fs.Dir.open(alloc, path),
-            .currentPath = path,
-            .allocator   = alloc,
+            .pathsToScan  = std.atomic.Queue([]u8).init(),
+            .allocator    = alloc,
+            .maxDepth     = 0,
+
+            .currentDir   = try std.fs.Dir.open(alloc, path),
+            .currentPath  = path,
+            .currentDepth = 0,
         };
     }
 
@@ -48,6 +55,7 @@ pub const IterativeWalker = struct {
                 return Entry{
                     .name = entry.name,
                     .absolutePath = full_entry_path,
+                    .relativePath = full_entry_path,
                     .kind = entry.kind,
                 };
             } else {
