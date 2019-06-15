@@ -8,6 +8,7 @@ pub const Entry = struct {
 };
 
 pub const IterativeWalker = struct {
+    startPath    : []u8,
     pathsToScan  : std.atomic.Queue([]u8),
     allocator    : *std.mem.Allocator,
     maxDepth     : u32,
@@ -20,6 +21,7 @@ pub const IterativeWalker = struct {
 
     pub fn init(alloc: *std.mem.Allocator, path: []u8) !Self {
         return Self{
+            .startPath    = path,
             .pathsToScan  = std.atomic.Queue([]u8).init(),
             .allocator    = alloc,
             .maxDepth     = 0,
@@ -55,7 +57,7 @@ pub const IterativeWalker = struct {
                 return Entry{
                     .name = entry.name,
                     .absolutePath = full_entry_path,
-                    .relativePath = full_entry_path,
+                    .relativePath = full_entry_path[self.startPath.len + 1..],
                     .kind = entry.kind,
                 };
             } else {
