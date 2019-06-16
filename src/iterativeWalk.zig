@@ -32,13 +32,19 @@ pub const IterativeWalker = struct {
         };
     }
 
-    pub fn next(self: *Self) anyerror!?Entry {
+    pub fn next(self: *Self) !?Entry {
         outer: while (true) {
             if (try self.currentDir.next()) |entry| {
-                var full_entry_buf = std.ArrayList(u8).init(self.allocator);
-                try full_entry_buf.resize(self.currentPath.len + entry.name.len + 1);
-         
-                const full_entry_path = full_entry_buf.toSlice();
+                //var full_entry_buf = std.ArrayList(u8).init(self.allocator);
+                //try full_entry_buf.resize(self.currentPath.len + entry.name.len + 1);
+                
+                //var full_entry_buf = [_]u8{0} ** std.fs.MAX_PATH_BYTES;
+
+                //var full_entry_buf = try self.allocator.create([std.fs.MAX_PATH_BYTES]u8);
+
+                //const full_entry_path = full_entry_buf[0 .. self.currentPath.len + entry.name.len + 1];
+
+                const full_entry_path = try self.allocator.alloc(u8, self.currentPath.len + entry.name.len + 1);
                 std.mem.copy(u8, full_entry_path, self.currentPath);
                 full_entry_path[self.currentPath.len] = std.fs.path.sep;
                 std.mem.copy(u8, full_entry_path[self.currentPath.len + 1 ..], entry.name);

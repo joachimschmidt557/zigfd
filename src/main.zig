@@ -71,30 +71,68 @@ pub fn main() anyerror!void {
     defer args.deinit();
 
     // Flags
-    if (args.flag("--help"))
+    if (args.flag("--help")) {
         return try clap.help(stdout, params);
-    if (args.flag("--version"))
+    }
+    if (args.flag("--version")) {
         return try stdout_file.write("zigfd\n");
-
-    var re : ?regex.Regex = null;
-    // Positionals
-    for (args.positionals()) |pos| {
-        re = try regex.Regex.compile(allocator, pos);
     }
 
+    // Options
+    if (args.option("--max-depth")) |d| {
+    }
 
-    // Get current working directory
-    var cwd_buf: [std.fs.MAX_PATH_BYTES]u8 = undefined;
-    const search_path = try std.os.getcwd(&cwd_buf);
+    var re : ?regex.Regex = null;
+    var paths : std.atomic.Queue([]u8) = std.atomic.Queue([]u8).init();
+    // Positionals
+    for (args.positionals()) |pos| {
+        // If a regex is already compiled, we are looking at paths
+        if (re) |_| {
+            const new_path = try allocator.alloc(u8, pos.len);
+            std.mem.copy(u8, new_path, pos);
 
-    var walker = try iterative.IterativeWalker.init(allocator, search_path);
-    while (try walker.next()) |entry| {
-        if (re) |pattern| {
-            if (try re.?.match(entry.name)) {
+            const new_node = try allocator.create(std.atomic.Queue([]u8).Node);
+            new_node.* = std.atomic.Queue([]u8).Node {
+                .next = undefined,
+                .prev = undefined,
+                .data = new_path,
+            };
+
+            paths.put(new_node);
+        }
+        else {
+            re = try regex.Regex.compile(allocator, pos);
+        }
+    }
+
+    // If no search paths were given, default to the current
+    // working directory.
+    if (paths.isEmpty()) {
+        // Add current working directory to search paths
+        var cwd_buf: [std.fs.MAX_PATH_BYTES]u8 = undefined;
+        const cwd = try std.os.getcwd(&cwd_buf);
+
+        const new_node = try allocator.create(std.atomic.Queue([]u8).Node);
+        new_node.* = std.atomic.Queue([]u8).Node {
+            .next = undefined,
+            .prev = undefined,
+            .data = cwd,
+        };
+
+        paths.put(new_node);
+    }
+
+    while (paths.get()) |search_path| {
+        var walker = try iterative.IterativeWalker.init(allocator, search_path.data);
+        defer allocator.destroy(search_path);
+        while (try walker.next()) |entry| {
+            if (re) |pattern| {
+                if (try re.?.match(entry.name)) {
+                    try printer.printEntry(entry, stdout_file);
+                }
+            } else {
                 try printer.printEntry(entry, stdout_file);
             }
-        } else {
-            try printer.printEntry(entry, stdout_file);
         }
     }
 }
