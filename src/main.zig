@@ -126,8 +126,8 @@ pub fn main() anyerror!void {
         var walker = try iterative.IterativeWalker.init(allocator, search_path.data);
         defer allocator.destroy(search_path);
         while (try walker.next()) |entry| {
-            if (re) |pattern| {
-                if (try re.?.match(entry.name)) {
+            if (re) |*pattern| {
+                if (try pattern.match(entry.name)) {
                     try printer.printEntry(entry, stdout_file);
                 }
             } else {
