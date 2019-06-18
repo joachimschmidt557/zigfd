@@ -128,10 +128,10 @@ pub fn main() anyerror!void {
         while (try walker.next()) |entry| {
             if (re) |*pattern| {
                 if (try pattern.match(entry.name)) {
-                    try printer.printEntry(entry, stdout_file);
+                    try printer.printEntryStream(entry, stdout);
                 }
             } else {
-                try printer.printEntry(entry, stdout_file);
+                try printer.printEntryStream(entry, stdout);
             }
         }
     }
