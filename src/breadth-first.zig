@@ -1,13 +1,8 @@
 const std = @import("std");
 
-pub const Entry = struct {
-    name: []const u8,
-    absolutePath: []u8,
-    relativePath: []u8,
-    kind: std.fs.Dir.Entry.Kind,
-};
+const Entry = @import("entry.zig").Entry;
 
-pub const IterativeWalker = struct {
+pub const BreadthFirstWalker = struct {
     startPath    : []u8,
     pathsToScan  : std.atomic.Queue([]u8),
     allocator    : *std.mem.Allocator,

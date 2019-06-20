@@ -4,10 +4,10 @@ const regex = @import("zig-regex/src/regex.zig");
 const clap = @import("zig-clap/clap.zig");
 
 const recursive = @import("recursiveWalk.zig");
-const iterative = @import("iterativeWalk.zig");
+const breadthFirst = @import("breadth-first.zig");
 const printer   = @import("printer.zig");
 
-pub fn main() anyerror!void {
+pub fn main() !void {
     // Set up allocators
     var direct_allocator = std.heap.DirectAllocator.init();
     defer direct_allocator.deinit();
@@ -123,7 +123,7 @@ pub fn main() anyerror!void {
     }
 
     while (paths.get()) |search_path| {
-        var walker = try iterative.IterativeWalker.init(allocator, search_path.data);
+        var walker = try breadthFirst.BreadthFirstWalker.init(allocator, search_path.data);
         defer allocator.destroy(search_path);
         while (try walker.next()) |entry| {
             if (re) |*pattern| {
