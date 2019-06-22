@@ -9,11 +9,7 @@ const printer   = @import("printer.zig");
 
 pub fn main() !void {
     // Set up allocators
-    var direct_allocator = std.heap.DirectAllocator.init();
-    defer direct_allocator.deinit();
-    const dir_allocator = &direct_allocator.allocator;
-
-    var arena = std.heap.ArenaAllocator.init(&direct_allocator.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.heap.direct_allocator);
     defer arena.deinit();
     const allocator = &arena.allocator;
 
@@ -60,14 +56,14 @@ pub fn main() !void {
 
     // We then initialize an argument iterator. We will use the OsIterator as it nicely
     // wraps iterating over arguments the most efficient way on each os.
-    var iter = clap.args.OsIterator.init(dir_allocator);
+    var iter = clap.args.OsIterator.init(std.heap.direct_allocator);
     defer iter.deinit();
 
     // Consume the exe arg.
     const exe = try iter.next();
 
     // Finally we can parse the arguments
-    var args = try clap.ComptimeClap([]const u8, params).parse(dir_allocator, clap.args.OsIterator, &iter);
+    var args = try clap.ComptimeClap([]const u8, params).parse(std.heap.direct_allocator, clap.args.OsIterator, &iter);
     defer args.deinit();
 
     // Flags
@@ -75,7 +71,9 @@ pub fn main() !void {
         return try clap.help(stdout, params);
     }
     if (args.flag("--version")) {
-        return try stdout_file.write("zigfd\n");
+        return try stdout.print("zigfd\n");
+    }
+    if (args.flag("--hidden")) {
     }
 
     // Options
