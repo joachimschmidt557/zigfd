@@ -3,7 +3,6 @@ const std = @import("std");
 const regex = @import("zig-regex/src/regex.zig");
 const clap = @import("zig-clap/clap.zig");
 
-const recursive = @import("recursiveWalk.zig");
 const breadthFirst = @import("breadth-first.zig");
 const printer   = @import("printer.zig");
 
@@ -120,17 +119,23 @@ pub fn main() !void {
         paths.put(new_node);
     }
 
-    while (paths.get()) |search_path| {
+    outer: while (paths.get()) |search_path| {
         var walker = try breadthFirst.BreadthFirstWalker.init(allocator, search_path.data);
         defer allocator.destroy(search_path);
-        while (try walker.next()) |entry| {
-            if (re) |*pattern| {
-                if (try pattern.match(entry.name)) {
-                    try printer.printEntryStream(entry, stdout);
+        inner: while (walker.next()) |entry| {
+            if (entry) |e| {
+                if (re) |*pattern| {
+                    if (try pattern.match(e.name)) {
+                        try printer.printEntryStream(e, stdout);
+                    }
+                } else {
+                    try printer.printEntryStream(e, stdout);
                 }
             } else {
-                try printer.printEntryStream(entry, stdout);
+                continue :outer;
             }
+        } else |err| {
+            continue;
         }
     }
 }
