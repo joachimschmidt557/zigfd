@@ -3,7 +3,7 @@ const std = @import("std");
 const regex = @import("zig-regex/src/regex.zig");
 const clap = @import("zig-clap/clap.zig");
 
-const breadthFirst = @import("breadth-first.zig");
+const breadthFirst = @import("zig-walkdir/breadth-first.zig");
 const printer   = @import("printer.zig");
 
 pub fn main() !void {

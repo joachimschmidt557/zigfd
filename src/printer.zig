@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const Entry = @import("entry.zig").Entry;
+const Entry = @import("zig-walkdir/entry.zig").Entry;
 
 pub fn printEntryFile(entry: Entry, out: std.fs.File) !void {
     try out.write(entry.relativePath);
