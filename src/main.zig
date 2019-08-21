@@ -3,7 +3,7 @@ const std = @import("std");
 const regex = @import("zig-regex/src/regex.zig");
 const clap = @import("zig-clap/clap.zig");
 
-const breadthFirst = @import("zig-walkdir/src/breadth_first.zig");
+const depthFirst = @import("zig-walkdir/src/depth_first.zig");
 const printer   = @import("printer.zig");
 
 pub fn main() !void {
@@ -100,7 +100,7 @@ pub fn main() !void {
     }
 
     outer: while (paths.get()) |search_path| {
-        var walker = try breadthFirst.BreadthFirstWalker.init(allocator, search_path.data);
+        var walker = try depthFirst.DepthFirstWalker.init(allocator, search_path.data);
         defer allocator.destroy(search_path);
         inner: while (walker.next()) |entry| {
             if (entry) |e| {
