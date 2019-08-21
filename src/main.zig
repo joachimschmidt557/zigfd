@@ -3,7 +3,7 @@ const std = @import("std");
 const regex = @import("zig-regex/src/regex.zig");
 const clap = @import("zig-clap/clap.zig");
 
-const breadthFirst = @import("zig-walkdir/breadth-first.zig");
+const breadthFirst = @import("zig-walkdir/src/breadth_first.zig");
 const printer   = @import("printer.zig");
 
 pub fn main() !void {
@@ -18,37 +18,17 @@ pub fn main() !void {
     const stdout = &stdout_out_stream.stream;
 
     // These are the command-line args
-    const params = comptime [_]clap.Param([]const u8){
+    const params = comptime [_]clap.Param(clap.Help){
         // Flags
-        clap.Param([]const u8){
-            .id = "Display this help and exit.",
-            .names = clap.Names{ .short = 'h', .long = "help" },
-        },
-        clap.Param([]const u8){
-            .id = "Display version info and exit.",
-            .names = clap.Names{ .short = 'v', .long = "version" },
-        },
-        clap.Param([]const u8){
-            .id = "Include hidden files and directories",
-            .names = clap.Names{
-                .short = 'H',
-                .long = "hidden",
-            },
-        },
+        clap.parseParam("-h, --help Display this help and exit.") catch unreachable,
+        clap.parseParam("-v, --version Display version info and exit.") catch unreachable,
+        clap.parseParam("-H, --hidden Include hidden files and directories") catch unreachable,
 
         // Options
-        clap.Param([]const u8){
-            .id = "Set a limit for the depth",
-            .names = clap.Names{
-                .short = 'd',
-                .long = "max-depth",
-            },
-            .takes_value = true,
-        },
+        clap.parseParam("-d, --max-depth <NUM> Set a limit for the depth") catch unreachable,
 
         // Positionals
-        clap.Param([]const u8){
-            .id = "PATTERN",
+        clap.Param(clap.Help){
             .takes_value = true,
         },
     };
@@ -62,7 +42,7 @@ pub fn main() !void {
     const exe = try iter.next();
 
     // Finally we can parse the arguments
-    var args = try clap.ComptimeClap([]const u8, params).parse(std.heap.direct_allocator, clap.args.OsIterator, &iter);
+    var args = try clap.ComptimeClap(clap.Help, params).parse(std.heap.direct_allocator, clap.args.OsIterator, &iter);
     defer args.deinit();
 
     // Flags
