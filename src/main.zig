@@ -1,10 +1,12 @@
 const std = @import("std");
 
-const regex = @import("zig-regex/src/regex.zig");
-const clap = @import("zig-clap/clap.zig");
+const regex      = @import("zig-regex/src/regex.zig");
+const clap       = @import("zig-clap/clap.zig");
 
 const depthFirst = @import("zig-walkdir/src/depth_first.zig");
-const printer   = @import("printer.zig");
+const breadthFirst = @import("zig-walkdir/src/breadth_first.zig");
+const walkdir    = @import("zig-walkdir/src/main.zig");
+const printer    = @import("printer.zig");
 
 pub fn main() !void {
     // Set up allocators
@@ -16,6 +18,9 @@ pub fn main() !void {
     const stdout_file = try std.io.getStdOut();
     var stdout_out_stream = stdout_file.outStream();
     const stdout = &stdout_out_stream.stream;
+
+    // Set up walking options
+    var walk_options = walkdir.WalkDirOptions.default();
 
     // These are the command-line args
     const params = comptime [_]clap.Param(clap.Help){
@@ -53,6 +58,7 @@ pub fn main() !void {
         return try stdout.print("zigfd\n");
     }
     if (args.flag("--hidden")) {
+        walk_options.include_hidden = true;
     }
 
     // Options
@@ -100,8 +106,11 @@ pub fn main() !void {
     }
 
     outer: while (paths.get()) |search_path| {
-        var walker = try depthFirst.DepthFirstWalker.init(allocator, search_path.data);
+        //var walker = try walkdir.Walker.init(allocator, search_path.data, walk_options);
+        //var walker = try depthFirst.DepthFirstWalker.init(allocator, search_path.data, 1, true);
+        var walker = try breadthFirst.BreadthFirstWalker.init(allocator, search_path.data, null, walk_options.include_hidden);
         defer allocator.destroy(search_path);
+
         inner: while (walker.next()) |entry| {
             if (entry) |e| {
                 if (re) |*pattern| {
