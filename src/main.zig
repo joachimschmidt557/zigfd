@@ -3,8 +3,8 @@ const std = @import("std");
 const regex      = @import("zig-regex/src/regex.zig");
 const clap       = @import("zig-clap/clap.zig");
 
-const depthFirst = @import("zig-walkdir/src/depth_first.zig");
-const breadthFirst = @import("zig-walkdir/src/breadth_first.zig");
+const depth_first = @import("zig-walkdir/src/depth_first.zig");
+const breadth_first = @import("zig-walkdir/src/breadth_first.zig");
 const walkdir    = @import("zig-walkdir/src/main.zig");
 const printer    = @import("printer.zig");
 
@@ -63,10 +63,13 @@ pub fn main() !void {
 
     // Options
     if (args.option("--max-depth")) |d| {
+        const depth = try std.fmt.parseUnsigned(u32, d, 10);
+        walk_options.max_depth = depth;
     }
 
     var re : ?regex.Regex = null;
     var paths : std.atomic.Queue([]u8) = std.atomic.Queue([]u8).init();
+
     // Positionals
     for (args.positionals()) |pos| {
         // If a regex is already compiled, we are looking at paths
@@ -107,8 +110,8 @@ pub fn main() !void {
 
     outer: while (paths.get()) |search_path| {
         //var walker = try walkdir.Walker.init(allocator, search_path.data, walk_options);
-        //var walker = try depthFirst.DepthFirstWalker.init(allocator, search_path.data, 1, true);
-        var walker = try breadthFirst.BreadthFirstWalker.init(allocator, search_path.data, null, walk_options.include_hidden);
+        //var walker = try depth_first.DepthFirstWalker.init(allocator, search_path.data, 1, true);
+        var walker = try breadth_first.BreadthFirstWalker.init(allocator, search_path.data, walk_options.max_depth, walk_options.include_hidden);
         defer allocator.destroy(search_path);
 
         inner: while (walker.next()) |entry| {
