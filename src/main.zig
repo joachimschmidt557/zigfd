@@ -67,8 +67,8 @@ pub fn main() !void {
         walk_options.max_depth = depth;
     }
 
-    var re : ?regex.Regex = null;
-    var paths : std.atomic.Queue([]u8) = std.atomic.Queue([]u8).init();
+    var re: ?regex.Regex = null;
+    var paths: std.atomic.Queue([]u8) = std.atomic.Queue([]u8).init();
 
     // Positionals
     for (args.positionals()) |pos| {
