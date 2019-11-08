@@ -8,6 +8,8 @@ const breadth_first = @import("zig-walkdir/src/breadth_first.zig");
 const walkdir    = @import("zig-walkdir/src/main.zig");
 const printer    = @import("printer.zig");
 
+const PathQueue = std.atomic.Queue([]const u8);
+
 pub fn main() !void {
     // Set up allocators
     var arena = std.heap.ArenaAllocator.init(std.heap.direct_allocator);
@@ -68,26 +70,30 @@ pub fn main() !void {
     }
 
     var re: ?regex.Regex = null;
-    var paths: std.atomic.Queue([]u8) = std.atomic.Queue([]u8).init();
+    var paths = PathQueue.init();
 
     // Positionals
     for (args.positionals()) |pos| {
         // If a regex is already compiled, we are looking at paths
         if (re) |_| {
-            const new_path = try allocator.alloc(u8, pos.len);
-            std.mem.copy(u8, new_path, pos);
-
-            const new_node = try allocator.create(std.atomic.Queue([]u8).Node);
-            new_node.* = std.atomic.Queue([]u8).Node {
+            const new_node = try allocator.create(PathQueue.Node);
+            new_node.* = PathQueue.Node {
                 .next = undefined,
                 .prev = undefined,
-                .data = new_path,
+                .data = pos,
             };
 
             paths.put(new_node);
         }
         else {
-            re = try regex.Regex.compile(allocator, pos);
+            const real_regex = try allocator.alloc(u8, pos.len + 4);
+            real_regex[0] = '.';
+            real_regex[1] = '*';
+            std.mem.copy(u8, real_regex[2..], pos);
+            real_regex[real_regex.len - 2] = '.';
+            real_regex[real_regex.len - 1] = '*';
+ 
+            re = try regex.Regex.compile(allocator, real_regex);
         }
     }
 
@@ -98,8 +104,8 @@ pub fn main() !void {
         var cwd_buf: [std.fs.MAX_PATH_BYTES]u8 = undefined;
         const cwd = try std.os.getcwd(&cwd_buf);
 
-        const new_node = try allocator.create(std.atomic.Queue([]u8).Node);
-        new_node.* = std.atomic.Queue([]u8).Node {
+        const new_node = try allocator.create(PathQueue.Node);
+        new_node.* = PathQueue.Node {
             .next = undefined,
             .prev = undefined,
             .data = cwd,
@@ -112,7 +118,6 @@ pub fn main() !void {
         //var walker = try walkdir.Walker.init(allocator, search_path.data, walk_options);
         var walker = try depth_first.DepthFirstWalker.init(allocator, search_path.data, walk_options.max_depth, walk_options.include_hidden);
         //var walker = try breadth_first.BreadthFirstWalker.init(allocator, search_path.data, walk_options.max_depth, walk_options.include_hidden);
-        defer allocator.destroy(search_path);
 
         inner: while (walker.next()) |entry| {
             if (entry) |e| {
