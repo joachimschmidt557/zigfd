@@ -110,8 +110,8 @@ pub fn main() !void {
 
     outer: while (paths.get()) |search_path| {
         //var walker = try walkdir.Walker.init(allocator, search_path.data, walk_options);
-        //var walker = try depth_first.DepthFirstWalker.init(allocator, search_path.data, 1, true);
-        var walker = try breadth_first.BreadthFirstWalker.init(allocator, search_path.data, walk_options.max_depth, walk_options.include_hidden);
+        var walker = try depth_first.DepthFirstWalker.init(allocator, search_path.data, walk_options.max_depth, walk_options.include_hidden);
+        //var walker = try breadth_first.BreadthFirstWalker.init(allocator, search_path.data, walk_options.max_depth, walk_options.include_hidden);
         defer allocator.destroy(search_path);
 
         inner: while (walker.next()) |entry| {
@@ -127,7 +127,7 @@ pub fn main() !void {
                 continue :outer;
             }
         } else |err| {
-            continue;
+            return err;
         }
     }
 }
