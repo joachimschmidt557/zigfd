@@ -17,7 +17,7 @@ pub fn main() !void {
     const allocator = &arena.allocator;
 
     // Set up stdout
-    const stdout_file = try std.io.getStdOut();
+    const stdout_file = std.io.getStdOut();
     var stdout_out_stream = stdout_file.outStream();
     const stdout = &stdout_out_stream.stream;
 
@@ -42,7 +42,7 @@ pub fn main() !void {
 
     // We then initialize an argument iterator. We will use the OsIterator as it nicely
     // wraps iterating over arguments the most efficient way on each os.
-    var iter = clap.args.OsIterator.init(std.heap.direct_allocator);
+    var iter = try clap.args.OsIterator.init(allocator);
     defer iter.deinit();
 
     // Consume the exe arg.
