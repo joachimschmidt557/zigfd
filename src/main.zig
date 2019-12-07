@@ -49,7 +49,7 @@ pub fn main() !void {
     const exe = try iter.next();
 
     // Finally we can parse the arguments
-    var args = try clap.ComptimeClap(clap.Help, params).parse(std.heap.direct_allocator, clap.args.OsIterator, &iter);
+    var args = try clap.ComptimeClap(clap.Help, params).parse(allocator, clap.args.OsIterator, &iter);
     defer args.deinit();
 
     // Flags
