@@ -49,15 +49,15 @@ pub fn main() !void {
     const exe = try iter.next();
 
     // Finally we can parse the arguments
-    var args = try clap.ComptimeClap(clap.Help, params).parse(allocator, clap.args.OsIterator, &iter);
+    var args = try clap.ComptimeClap(clap.Help, &params).parse(allocator, clap.args.OsIterator, &iter);
     defer args.deinit();
 
     // Flags
     if (args.flag("--help")) {
-        return try clap.help(stdout, params);
+        return try clap.help(stdout, &params);
     }
     if (args.flag("--version")) {
-        return try stdout.print("zigfd\n");
+        return try stdout.print("zigfd version {}\n", .{ "0.0.1" });
     }
     if (args.flag("--hidden")) {
         walk_options.include_hidden = true;
