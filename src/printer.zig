@@ -8,5 +8,5 @@ pub fn printEntryFile(entry: Entry, out: std.fs.File) !void {
 }
 
 pub fn printEntryStream(entry: Entry, out: var) !void {
-    try out.print("{}\n", entry.relative_path);
+    try out.print("{}\n", .{entry.relative_path});
 }

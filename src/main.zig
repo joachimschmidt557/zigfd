@@ -1,20 +1,21 @@
 const std = @import("std");
 
-const regex      = @import("zig-regex/src/regex.zig");
-const clap       = @import("zig-clap/clap.zig");
+// const regex = @import("zig-regex/src/regex.zig");
+const clap = @import("zig-clap/clap.zig");
 
 const depth_first = @import("zig-walkdir/src/depth_first.zig");
 const breadth_first = @import("zig-walkdir/src/breadth_first.zig");
-const walkdir    = @import("zig-walkdir/src/main.zig");
-const printer    = @import("printer.zig");
+const walkdir = @import("zig-walkdir/src/main.zig");
+const printer = @import("printer.zig");
 
 const PathQueue = std.atomic.Queue([]const u8);
 
 pub fn main() !void {
     // Set up allocators
-    var arena = std.heap.ArenaAllocator.init(std.heap.direct_allocator);
-    defer arena.deinit();
-    const allocator = &arena.allocator;
+    // var arena = std.heap.ArenaAllocator.init(std.heap.direct_allocator);
+    // defer arena.deinit();
+    // const allocator = &arena.allocator;
+    const allocator = std.heap.c_allocator;
 
     // Set up stdout
     const stdout_file = std.io.getStdOut();
@@ -57,7 +58,7 @@ pub fn main() !void {
         return try clap.help(stdout, &params);
     }
     if (args.flag("--version")) {
-        return try stdout.print("zigfd version {}\n", .{ "0.0.1" });
+        return try stdout.print("zigfd version {}\n", .{"0.0.1"});
     }
     if (args.flag("--hidden")) {
         walk_options.include_hidden = true;
@@ -69,33 +70,33 @@ pub fn main() !void {
         walk_options.max_depth = depth;
     }
 
-    var re: ?regex.Regex = null;
+    // var re: ?regex.Regex = null;
     var paths = PathQueue.init();
 
     // Positionals
-    for (args.positionals()) |pos| {
-        // If a regex is already compiled, we are looking at paths
-        if (re) |_| {
-            const new_node = try allocator.create(PathQueue.Node);
-            new_node.* = PathQueue.Node {
-                .next = undefined,
-                .prev = undefined,
-                .data = pos,
-            };
+    // for (args.positionals()) |pos| {
+    //     // If a regex is already compiled, we are looking at paths
+    //     if (re) |_| {
+    //         const new_node = try allocator.create(PathQueue.Node);
+    //         new_node.* = PathQueue.Node {
+    //             .next = undefined,
+    //             .prev = undefined,
+    //             .data = pos,
+    //         };
 
-            paths.put(new_node);
-        }
-        else {
-            const real_regex = try allocator.alloc(u8, pos.len + 4);
-            real_regex[0] = '.';
-            real_regex[1] = '*';
-            std.mem.copy(u8, real_regex[2..], pos);
-            real_regex[real_regex.len - 2] = '.';
-            real_regex[real_regex.len - 1] = '*';
- 
-            re = try regex.Regex.compile(allocator, real_regex);
-        }
-    }
+    //         paths.put(new_node);
+    //     }
+    //     else {
+    //         const real_regex = try allocator.alloc(u8, pos.len + 4);
+    //         real_regex[0] = '.';
+    //         real_regex[1] = '*';
+    //         std.mem.copy(u8, real_regex[2..], pos);
+    //         real_regex[real_regex.len - 2] = '.';
+    //         real_regex[real_regex.len - 1] = '*';
+
+    //         re = try regex.Regex.compile(allocator, real_regex);
+    //     }
+    // }
 
     // If no search paths were given, default to the current
     // working directory.
@@ -105,7 +106,7 @@ pub fn main() !void {
         const cwd = try std.os.getcwd(&cwd_buf);
 
         const new_node = try allocator.create(PathQueue.Node);
-        new_node.* = PathQueue.Node {
+        new_node.* = PathQueue.Node{
             .next = undefined,
             .prev = undefined,
             .data = cwd,
@@ -117,17 +118,20 @@ pub fn main() !void {
     outer: while (paths.get()) |search_path| {
         //var walker = try walkdir.Walker.init(allocator, search_path.data, walk_options);
         var walker = try depth_first.DepthFirstWalker.init(allocator, search_path.data, walk_options.max_depth, walk_options.include_hidden);
-        //var walker = try breadth_first.BreadthFirstWalker.init(allocator, search_path.data, walk_options.max_depth, walk_options.include_hidden);
+        // var walker = try breadth_first.BreadthFirstWalker.init(allocator, search_path.data, walk_options.max_depth, walk_options.include_hidden);
+        defer allocator.destroy(search_path);
 
         inner: while (walker.next()) |entry| {
             if (entry) |e| {
-                if (re) |*pattern| {
-                    if (try pattern.match(e.name)) {
-                        try printer.printEntryStream(e, stdout);
-                    }
-                } else {
-                    try printer.printEntryStream(e, stdout);
-                }
+                // defer e.deinit();
+
+                // if (re) |*pattern| {
+                //     if (try pattern.match(e.name)) {
+                //         try printer.printEntryStream(e, stdout);
+                //     }
+                // } else {
+                try printer.printEntryStream(e, stdout);
+                // }
             } else {
                 continue :outer;
             }
