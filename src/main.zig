@@ -123,7 +123,7 @@ pub fn main() !void {
 
         inner: while (walker.next()) |entry| {
             if (entry) |e| {
-                // defer e.deinit();
+                defer e.deinit();
 
                 // if (re) |*pattern| {
                 //     if (try pattern.match(e.name)) {
