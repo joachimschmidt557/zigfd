@@ -4,6 +4,3 @@
 [submodule "src/zig-clap"]
 	path = src/zig-clap
 	url = https://github.com/Hejsil/zig-clap
-[submodule "src/zig-walkdir"]
-	path = src/zig-walkdir
-	url = https://github.com/joachimschmidt557/zig-walkdir
