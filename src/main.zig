@@ -3,9 +3,10 @@ const std = @import("std");
 // const regex = @import("zig-regex/src/regex.zig");
 const clap = @import("zig-clap/clap.zig");
 
-const depth_first = @import("zig-walkdir/src/depth_first.zig");
-const breadth_first = @import("zig-walkdir/src/breadth_first.zig");
 const walkdir = @import("zig-walkdir/src/main.zig");
+const DepthFirstWalker = walkdir.DepthFirstWalker;
+const BreadthFirstWalker = walkdir.BreadthFirstWalker;
+
 const printer = @import("printer.zig");
 
 const PathQueue = std.atomic.Queue([]const u8);
@@ -21,9 +22,6 @@ pub fn main() !void {
     const stdout_file = std.io.getStdOut();
     var stdout_out_stream = stdout_file.outStream();
     const stdout = &stdout_out_stream.stream;
-
-    // Set up walking options
-    var walk_options = walkdir.WalkDirOptions.default();
 
     // These are the command-line args
     const params = comptime [_]clap.Param(clap.Help){
@@ -61,13 +59,13 @@ pub fn main() !void {
         return try stdout.print("zigfd version {}\n", .{"0.0.1"});
     }
     if (args.flag("--hidden")) {
-        walk_options.include_hidden = true;
+        // walk_options.include_hidden = true;
     }
 
     // Options
     if (args.option("--max-depth")) |d| {
         const depth = try std.fmt.parseUnsigned(u32, d, 10);
-        walk_options.max_depth = depth;
+        // walk_options.max_depth = depth;
     }
 
     // var re: ?regex.Regex = null;
@@ -116,9 +114,8 @@ pub fn main() !void {
     }
 
     outer: while (paths.get()) |search_path| {
-        //var walker = try walkdir.Walker.init(allocator, search_path.data, walk_options);
-        var walker = try depth_first.DepthFirstWalker.init(allocator, search_path.data, walk_options.max_depth, walk_options.include_hidden);
-        // var walker = try breadth_first.BreadthFirstWalker.init(allocator, search_path.data, walk_options.max_depth, walk_options.include_hidden);
+        var walker = try DepthFirstWalker.init(allocator, search_path.data, null, false);
+        // var walker = try BreadthFirstWalker.init(allocator, search_path.data, walk_options.max_depth, walk_options.include_hidden);
         defer allocator.destroy(search_path);
 
         inner: while (walker.next()) |entry| {
