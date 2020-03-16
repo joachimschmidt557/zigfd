@@ -20,8 +20,7 @@ pub fn main() !void {
 
     // Set up stdout
     const stdout_file = std.io.getStdOut();
-    var stdout_out_stream = stdout_file.outStream();
-    const stdout = &stdout_out_stream.stream;
+    var stdout = stdout_file.outStream();
 
     // These are the command-line args
     const params = comptime [_]clap.Param(clap.Help){
