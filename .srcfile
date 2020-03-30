@@ -1,0 +1,3 @@
+git https://github.com/tiehuis/zig-regex zig-regex
+git https://github.com/Hejsil/zig-clap zig-clap
+git https://github.com/joachimschmidt557/zig-walkdir zig-walkdir

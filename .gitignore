@@ -2,3 +2,7 @@
 
 src/main
 src/main.o
+
+zig-regex/
+zig-clap/
+zig-walkdir/
