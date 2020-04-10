@@ -1,9 +1,9 @@
 const std = @import("std");
 
-// const regex = @import("zig-regex/src/regex.zig");
-const clap = @import("../zig-clap/clap.zig");
+// const regex = @import("regex");
+const clap = @import("clap");
 
-const walkdir = @import("../zig-walkdir/src/main.zig");
+const walkdir = @import("walkdir");
 const DepthFirstWalker = walkdir.DepthFirstWalker;
 const BreadthFirstWalker = walkdir.BreadthFirstWalker;
 

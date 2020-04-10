@@ -2,8 +2,12 @@ const Builder = @import("std").build.Builder;
 
 pub fn build(b: *Builder) void {
     const mode = b.standardReleaseOptions();
+
     const exe = b.addExecutable("zigfd", "src/main.zig");
     exe.setBuildMode(mode);
+    exe.addPackagePath("clap", "zig-clap/clap.zig");
+    exe.addPackagePath("regex", "zig-regex/src/regex.zig");
+    exe.addPackagePath("walkdir", "zig-walkdir/src/main.zig");
     exe.linkSystemLibrary("c");
 
     const run_cmd = exe.run();
