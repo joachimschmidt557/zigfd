@@ -1,6 +1,6 @@
 const std = @import("std");
 
-// const regex = @import("regex");
+const regex = @import("regex");
 const clap = @import("clap");
 
 const walkdir = @import("walkdir");
@@ -67,33 +67,33 @@ pub fn main() !void {
         // walk_options.max_depth = depth;
     }
 
-    // var re: ?regex.Regex = null;
+    var re: ?regex.Regex = null;
     var paths = PathQueue.init();
 
     // Positionals
-    // for (args.positionals()) |pos| {
-    //     // If a regex is already compiled, we are looking at paths
-    //     if (re) |_| {
-    //         const new_node = try allocator.create(PathQueue.Node);
-    //         new_node.* = PathQueue.Node {
-    //             .next = undefined,
-    //             .prev = undefined,
-    //             .data = pos,
-    //         };
+    for (args.positionals()) |pos| {
+        // If a regex is already compiled, we are looking at paths
+        if (re) |_| {
+            const new_node = try allocator.create(PathQueue.Node);
+            new_node.* = PathQueue.Node {
+                .next = undefined,
+                .prev = undefined,
+                .data = pos,
+            };
 
-    //         paths.put(new_node);
-    //     }
-    //     else {
-    //         const real_regex = try allocator.alloc(u8, pos.len + 4);
-    //         real_regex[0] = '.';
-    //         real_regex[1] = '*';
-    //         std.mem.copy(u8, real_regex[2..], pos);
-    //         real_regex[real_regex.len - 2] = '.';
-    //         real_regex[real_regex.len - 1] = '*';
+            paths.put(new_node);
+        }
+        else {
+            const real_regex = try allocator.alloc(u8, pos.len + 4);
+            real_regex[0] = '.';
+            real_regex[1] = '*';
+            std.mem.copy(u8, real_regex[2..], pos);
+            real_regex[real_regex.len - 2] = '.';
+            real_regex[real_regex.len - 1] = '*';
 
-    //         re = try regex.Regex.compile(allocator, real_regex);
-    //     }
-    // }
+            re = try regex.Regex.compile(allocator, real_regex);
+        }
+    }
 
     // If no search paths were given, default to the current
     // working directory.
@@ -117,22 +117,24 @@ pub fn main() !void {
         // var walker = try BreadthFirstWalker.init(allocator, search_path.data, walk_options.max_depth, walk_options.include_hidden);
         defer allocator.destroy(search_path);
 
-        inner: while (walker.next()) |entry| {
-            if (entry) |e| {
-                defer e.deinit();
+        inner: while (true) {
+            if (walker.next()) |entry| {
+                if (entry) |e| {
+                    defer e.deinit();
 
-                // if (re) |*pattern| {
-                //     if (try pattern.match(e.name)) {
-                //         try printer.printEntryStream(e, stdout);
-                //     }
-                // } else {
-                try printer.printEntryStream(e, stdout);
-                // }
-            } else {
-                continue :outer;
+                    if (re) |*pattern| {
+                        if (try pattern.match(e.name)) {
+                            try printer.printEntry(e, stdout);
+                        }
+                    } else {
+                        try printer.printEntry(e, stdout);
+                    }
+                } else {
+                    continue :outer;
+                }
+            } else |err| {
+                try printer.printError(err, stdout);
             }
-        } else |err| {
-            return err;
         }
     }
 }
