@@ -6,3 +6,4 @@ src/main.o
 zig-regex/
 zig-clap/
 zig-walkdir/
+zig-lscolors/

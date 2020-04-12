@@ -2,6 +2,8 @@ const std = @import("std");
 
 const regex = @import("regex");
 const clap = @import("clap");
+const lscolors = @import("lscolors");
+const LsColors = lscolors.LsColors;
 
 const walkdir = @import("walkdir");
 const DepthFirstWalker = walkdir.DepthFirstWalker;
@@ -20,17 +22,23 @@ pub fn main() !void {
 
     // Set up stdout
     const stdout_file = std.io.getStdOut();
-    var stdout = stdout_file.outStream();
+    const stdout = stdout_file.outStream();
+    var buffered_stdout = std.io.bufferedOutStream(stdout);
+    const out = buffered_stdout.outStream();
+    defer buffered_stdout.flush() catch {};
 
     // These are the command-line args
+    @setEvalBranchQuota(10000);
     const params = comptime [_]clap.Param(clap.Help){
         // Flags
         clap.parseParam("-h, --help Display this help and exit.") catch unreachable,
         clap.parseParam("-v, --version Display version info and exit.") catch unreachable,
         clap.parseParam("-H, --hidden Include hidden files and directories") catch unreachable,
+        clap.parseParam("-0, --print0 Separate search results with a null character") catch unreachable,
 
         // Options
         clap.parseParam("-d, --max-depth <NUM> Set a limit for the depth") catch unreachable,
+        clap.parseParam("-c, --color <when> Declare when to use colored output") catch unreachable,
 
         // Positionals
         clap.Param(clap.Help){
@@ -43,28 +51,36 @@ pub fn main() !void {
     var iter = try clap.args.OsIterator.init(allocator);
     defer iter.deinit();
 
-    // Consume the exe arg.
-    const exe = try iter.next();
-
     // Finally we can parse the arguments
     var args = try clap.ComptimeClap(clap.Help, &params).parse(allocator, clap.args.OsIterator, &iter);
     defer args.deinit();
 
+    var print_options = printer.PrintOptions.default;
+    defer print_options.deinit();
+
     // Flags
     if (args.flag("--help")) {
-        return try clap.help(stdout, &params);
+        return try clap.help(out, &params);
     }
     if (args.flag("--version")) {
-        return try stdout.print("zigfd version {}\n", .{"0.0.1"});
+        return try out.print("zigfd version {}\n", .{"0.0.1"});
     }
     if (args.flag("--hidden")) {
         // walk_options.include_hidden = true;
+    }
+    if (args.flag("--print0")) {
+        print_options.null_sep = true;
     }
 
     // Options
     if (args.option("--max-depth")) |d| {
         const depth = try std.fmt.parseUnsigned(u32, d, 10);
         // walk_options.max_depth = depth;
+    }
+    if (args.option("--color")) |when| {
+        if (std.mem.eql(u8, "always", when) or stdout_file.isTty()) {
+            print_options.color = try LsColors.fromEnv(allocator);
+        }
     }
 
     var re: ?regex.Regex = null;
@@ -84,14 +100,7 @@ pub fn main() !void {
             paths.put(new_node);
         }
         else {
-            const real_regex = try allocator.alloc(u8, pos.len + 4);
-            real_regex[0] = '.';
-            real_regex[1] = '*';
-            std.mem.copy(u8, real_regex[2..], pos);
-            real_regex[real_regex.len - 2] = '.';
-            real_regex[real_regex.len - 1] = '*';
-
-            re = try regex.Regex.compile(allocator, real_regex);
+            re = try regex.Regex.compile(allocator, pos);
         }
     }
 
@@ -99,14 +108,11 @@ pub fn main() !void {
     // working directory.
     if (paths.isEmpty()) {
         // Add current working directory to search paths
-        var cwd_buf: [std.fs.MAX_PATH_BYTES]u8 = undefined;
-        const cwd = try std.os.getcwd(&cwd_buf);
-
         const new_node = try allocator.create(PathQueue.Node);
         new_node.* = PathQueue.Node{
             .next = undefined,
             .prev = undefined,
-            .data = cwd,
+            .data = ".",
         };
 
         paths.put(new_node);
@@ -123,17 +129,17 @@ pub fn main() !void {
                     defer e.deinit();
 
                     if (re) |*pattern| {
-                        if (try pattern.match(e.name)) {
-                            try printer.printEntry(e, stdout);
+                        if (try pattern.partialMatch(e.name)) {
+                            try printer.printEntry(e, out, print_options);
                         }
                     } else {
-                        try printer.printEntry(e, stdout);
+                        try printer.printEntry(e, out, print_options);
                     }
                 } else {
                     continue :outer;
                 }
             } else |err| {
-                try printer.printError(err, stdout);
+                try printer.printError(err, out, print_options);
             }
         }
     }

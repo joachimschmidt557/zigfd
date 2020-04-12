@@ -8,6 +8,7 @@ pub fn build(b: *Builder) void {
     exe.addPackagePath("clap", "zig-clap/clap.zig");
     exe.addPackagePath("regex", "zig-regex/src/regex.zig");
     exe.addPackagePath("walkdir", "zig-walkdir/src/main.zig");
+    exe.addPackagePath("lscolors", "zig-lscolors/src/main.zig");
     exe.linkSystemLibrary("c");
 
     const run_cmd = exe.run();
