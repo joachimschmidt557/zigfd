@@ -9,7 +9,7 @@ const walkdir = @import("walkdir");
 const DepthFirstWalker = walkdir.DepthFirstWalker;
 const BreadthFirstWalker = walkdir.BreadthFirstWalker;
 
-const printer = @import("printer.zig");
+const actions = @import("actions.zig");
 
 const PathQueue = std.atomic.Queue([]const u8);
 
@@ -35,10 +35,12 @@ pub fn main() !void {
         clap.parseParam("-v, --version Display version info and exit.") catch unreachable,
         clap.parseParam("-H, --hidden Include hidden files and directories") catch unreachable,
         clap.parseParam("-0, --print0 Separate search results with a null character") catch unreachable,
+        clap.parseParam("--show-errors Show errors which were encountered during searching") catch unreachable,
 
         // Options
         clap.parseParam("-d, --max-depth <NUM> Set a limit for the depth") catch unreachable,
         clap.parseParam("-c, --color <when> Declare when to use colored output") catch unreachable,
+        clap.parseParam("-x, --exec <cmd> Execute a command for each search result") catch unreachable,
 
         // Positionals
         clap.Param(clap.Help){
@@ -55,8 +57,8 @@ pub fn main() !void {
     var args = try clap.ComptimeClap(clap.Help, &params).parse(allocator, clap.args.OsIterator, &iter);
     defer args.deinit();
 
-    var print_options = printer.PrintOptions.default;
-    defer print_options.deinit();
+    var action = actions.Action.default;
+    defer action.deinit();
 
     // Flags
     if (args.flag("--help")) {
@@ -65,22 +67,37 @@ pub fn main() !void {
     if (args.flag("--version")) {
         return try out.print("zigfd version {}\n", .{"0.0.1"});
     }
-    if (args.flag("--hidden")) {
-        // walk_options.include_hidden = true;
-    }
-    if (args.flag("--print0")) {
-        print_options.null_sep = true;
-    }
 
     // Options
-    if (args.option("--max-depth")) |d| {
-        const depth = try std.fmt.parseUnsigned(u32, d, 10);
-        // walk_options.max_depth = depth;
-    }
-    if (args.option("--color")) |when| {
-        if (std.mem.eql(u8, "always", when) or stdout_file.isTty()) {
-            print_options.color = try LsColors.fromEnv(allocator);
-        }
+    // if (args.option("--color")) |when| {
+    //     if (std.mem.eql(u8, "always", when) or stdout_file.isTty()) {
+    //         print_options.color = try LsColors.fromEnv(allocator);
+    //     }
+    // }
+
+    // Walk options
+    const walk_options = walkdir.Options{
+        .include_hidden = args.flag("--hidden"),
+        .max_depth = if (args.option("--max-depth")) |d|
+            std.fmt.parseUnsigned(usize, d, 10) catch null
+            else null,
+     };
+
+    // Action
+    if (args.option("--exec")) |cmd| {
+        action = actions.Action{
+            .Execute = actions.ExecuteOptions{
+                .cmd = cmd,
+            }
+        };
+    } else {
+        action = actions.Action{
+            .Print = actions.PrintOptions{
+                .color = null,
+                .null_sep = args.flag("--print0"),
+                .errors = args.flag("--show-errors"),
+            }
+        };
     }
 
     var re: ?regex.Regex = null;
@@ -119,8 +136,8 @@ pub fn main() !void {
     }
 
     outer: while (paths.get()) |search_path| {
-        var walker = try DepthFirstWalker.init(allocator, search_path.data, null, false);
-        // var walker = try BreadthFirstWalker.init(allocator, search_path.data, walk_options.max_depth, walk_options.include_hidden);
+        var walker = try DepthFirstWalker.init(allocator, search_path.data, walk_options);
+        // var walker = try BreadthFirstWalker.init(allocator, search_path.data, walk_options);
         defer allocator.destroy(search_path);
 
         inner: while (true) {
@@ -129,17 +146,21 @@ pub fn main() !void {
                     defer e.deinit();
 
                     if (re) |*pattern| {
-                        if (try pattern.partialMatch(e.name)) {
-                            try printer.printEntry(e, out, print_options);
+                        switch (action) {
+                            .Print => |x| try actions.printEntry(e, out, x),
+                            else => {},
                         }
                     } else {
-                        try printer.printEntry(e, out, print_options);
+                        switch (action) {
+                            .Print => |x| try actions.printEntry(e, out, x),
+                            else => {},
+                        }
                     }
                 } else {
                     continue :outer;
                 }
             } else |err| {
-                try printer.printError(err, out, print_options);
+                try actions.printError(err, out, actions.PrintOptions.default);
             }
         }
     }
