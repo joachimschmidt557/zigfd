@@ -1,4 +1,5 @@
 const std = @import("std");
+const ArrayList = std.ArrayList;
 
 const regex = @import("regex");
 const clap = @import("clap");
@@ -41,6 +42,7 @@ pub fn main() !void {
         clap.parseParam("-d, --max-depth <NUM> Set a limit for the depth") catch unreachable,
         clap.parseParam("-c, --color <when> Declare when to use colored output") catch unreachable,
         clap.parseParam("-x, --exec <cmd> Execute a command for each search result") catch unreachable,
+        clap.parseParam("-X, --exec-batch <cmd> Execute a command with all search results at once") catch unreachable,
 
         // Positionals
         clap.Param(clap.Help){
@@ -57,9 +59,6 @@ pub fn main() !void {
     var args = try clap.ComptimeClap(clap.Help, &params).parse(allocator, clap.args.OsIterator, &iter);
     defer args.deinit();
 
-    var action = actions.Action.default;
-    defer action.deinit();
-
     // Flags
     if (args.flag("--help")) {
         return try clap.help(out, &params);
@@ -68,37 +67,54 @@ pub fn main() !void {
         return try out.print("zigfd version {}\n", .{"0.0.1"});
     }
 
-    // Options
-    // if (args.option("--color")) |when| {
-    //     if (std.mem.eql(u8, "always", when) or stdout_file.isTty()) {
-    //         print_options.color = try LsColors.fromEnv(allocator);
-    //     }
-    // }
-
     // Walk options
     const walk_options = walkdir.Options{
         .include_hidden = args.flag("--hidden"),
-        .max_depth = if (args.option("--max-depth")) |d|
-            std.fmt.parseUnsigned(usize, d, 10) catch null
-            else null,
-     };
+        .max_depth = blk: {
+            if (args.option("--max-depth")) |d| {
+                break :blk std.fmt.parseUnsigned(usize, d, 10) catch null;
+            } else {
+                break :blk null;
+            }
+        },
+    };
+
+    var action: actions.Action = actions.Action.Print;
 
     // Action
     if (args.option("--exec")) |cmd| {
         action = actions.Action{
-            .Execute = actions.ExecuteOptions{
+            .Execute = actions.ExecuteTarget{
                 .cmd = cmd,
             }
         };
-    } else {
+    } else if (args.option("--exec-batch")) |cmd| {
         action = actions.Action{
-            .Print = actions.PrintOptions{
-                .color = null,
-                .null_sep = args.flag("--print0"),
-                .errors = args.flag("--show-errors"),
+            .ExecuteBatch = actions.ExecuteBatchTarget{
+                .cmd = cmd,
+                .args = ArrayList([]const u8).init(allocator),
             }
         };
     }
+
+    // Print options
+    var lsc: ?LsColors = null;
+    defer if (lsc) |*x| x.deinit();
+
+    const print_options = actions.PrintOptions{
+        .color = blk: {
+            if (args.option("--color")) |when| {
+                if (std.mem.eql(u8, "always", when) or stdout_file.isTty()) {
+                    lsc = try LsColors.fromEnv(allocator);
+                    break :blk &lsc.?;
+                }
+            }
+
+            break :blk null;
+        },
+        .null_sep = args.flag("--print0"),
+        .errors = args.flag("--show-errors"),
+    };
 
     var re: ?regex.Regex = null;
     var paths = PathQueue.init();
@@ -146,22 +162,33 @@ pub fn main() !void {
                     defer e.deinit();
 
                     if (re) |*pattern| {
-                        switch (action) {
-                            .Print => |x| try actions.printEntry(e, out, x),
-                            else => {},
+                        if (try pattern.partialMatch(e.name)) {
+                            switch (action) {
+                                .Print => try actions.printEntry(e, out, print_options),
+                                .Execute => |*a| try a.do(e),
+                                .ExecuteBatch => |*a| try a.do(e),
+                            }
                         }
                     } else {
                         switch (action) {
-                            .Print => |x| try actions.printEntry(e, out, x),
-                            else => {},
+                            .Print => try actions.printEntry(e, out, print_options),
+                            .Execute => |*a| try a.do(e),
+                            .ExecuteBatch => |*a| try a.do(e),
                         }
                     }
                 } else {
                     continue :outer;
                 }
             } else |err| {
-                try actions.printError(err, out, actions.PrintOptions.default);
+                try actions.printError(err, out, print_options);
             }
         }
+    }
+
+    // If the action ExecuteBatch is chosen, we have to execute the action after
+    // all entries have been found
+    switch (action) {
+        .ExecuteBatch => |*a| try a.finalize(),
+        else => {},
     }
 }

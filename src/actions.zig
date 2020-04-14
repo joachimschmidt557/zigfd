@@ -1,4 +1,5 @@
 const std = @import("std");
+const ArrayList = std.ArrayList;
 
 const lscolors = @import("lscolors");
 const LsColors = lscolors.LsColors;
@@ -9,41 +10,38 @@ const Entry = walkdir.Entry;
 pub const ActionType = enum {
     Print,
     Execute,
+    ExecuteBatch,
 };
 
 pub const Action = union(ActionType) {
-    Print: PrintOptions,
-    Execute: ExecuteOptions,
+    Print,
+    Execute: ExecuteTarget,
+    ExecuteBatch: ExecuteBatchTarget,
+};
+
+pub const ExecuteTarget = struct {
+    cmd: []const u8,
 
     const Self = @This();
 
-    pub const default = Self{
-        .Print = PrintOptions.default,
-    };
+    pub fn do(self: *Self, entry: Entry) !void {
 
-    pub fn deinit(self: Self) void {
-        switch (self) {
-            .Print => |x| x.deinit(),
-            else => {},
-        }
-    }
-
-    pub fn do(self: *Self, entry: Entry) void {
-        switch (self) {
-            .Print => {},
-            else => {},
-        }
-    }
-
-    pub fn finalize(self: *Self, entry: Entry) void {
-        switch (self) {
-            else => {},
-        }
     }
 };
 
-pub const ExecuteOptions = struct {
+pub const ExecuteBatchTarget = struct {
     cmd: []const u8,
+    args: ArrayList([]const u8),
+
+    const Self = @This();
+
+    pub fn do(self: *Self, entry: Entry) !void {
+        try self.args.append(entry.relative_path);
+    }
+
+    pub fn finalize(self: *Self) !void {
+        defer self.args.deinit();
+    }
 };
 
 pub const PrintOptions = struct {
@@ -58,10 +56,6 @@ pub const PrintOptions = struct {
         .null_sep = false,
         .errors = false,
     };
-
-    pub fn deinit(self: Self) void {
-        if (self.color) |lsc| lsc.deinit();
-    }
 };
 
 pub fn printEntry(entry: Entry, out: var, opt: PrintOptions) !void {
