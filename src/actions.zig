@@ -1,11 +1,11 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
+const ChildProcess = std.ChildProcess;
 
-const lscolors = @import("lscolors");
-const LsColors = lscolors.LsColors;
+const LsColors = @import("lscolors").LsColors;
 
-const walkdir = @import("walkdir");
-const Entry = walkdir.Entry;
+const Entry = @import("walkdir").Entry;
 
 pub const ActionType = enum {
     Print,
@@ -20,27 +20,63 @@ pub const Action = union(ActionType) {
 };
 
 pub const ExecuteTarget = struct {
+    alloc: *Allocator,
     cmd: []const u8,
 
     const Self = @This();
 
-    pub fn do(self: *Self, entry: Entry) !void {
+    pub fn init(alloc: *Allocator, cmd: []const u8) Self {
+        return Self{
+            .alloc = alloc,
+            .cmd = cmd,
+        };
+    }
 
+    pub fn do(self: *Self, entry: Entry) !void {
+        var cmd = ArrayList([]const u8).init(self.alloc);
+        defer cmd.deinit();
+
+        try cmd.append(self.cmd);
+        try cmd.append(entry.relative_path);
+
+        var child_process = try ChildProcess.init(cmd.items, self.alloc);
+        const term = try child_process.spawnAndWait();
     }
 };
 
 pub const ExecuteBatchTarget = struct {
     cmd: []const u8,
-    args: ArrayList([]const u8),
+    alloc: *Allocator,
+    args: ArrayList(Entry),
 
     const Self = @This();
 
+    pub fn init(alloc: *Allocator, cmd: []const u8) Self {
+        return Self{
+            .cmd = cmd,
+            .alloc = alloc,
+            .args = ArrayList(Entry).init(alloc),
+        };
+    }
+
     pub fn do(self: *Self, entry: Entry) !void {
-        try self.args.append(entry.relative_path);
+        try self.args.append(entry);
     }
 
     pub fn finalize(self: *Self) !void {
         defer self.args.deinit();
+        defer for (self.args.items) |x| x.deinit();
+
+        var cmd = ArrayList([]const u8).init(self.alloc);
+        defer cmd.deinit();
+
+        try cmd.append(self.cmd);
+        for (self.args.items) |e| {
+            try cmd.append(e.relative_path);
+        }
+
+        var child_process = try ChildProcess.init(cmd.items, self.alloc);
+        const term = try child_process.spawnAndWait();
     }
 };
 
