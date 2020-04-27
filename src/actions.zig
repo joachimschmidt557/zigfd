@@ -96,7 +96,7 @@ pub const PrintOptions = struct {
 
 pub fn printEntry(entry: Entry, out: var, opt: PrintOptions) !void {
     if (opt.color) |lsc| {
-        try out.print("{}", .{ lsc.styled(entry.relative_path) });
+        try out.print("{}", .{ lsc.styledComponents(entry.relative_path) });
     } else {
         try out.writeAll(entry.relative_path);
     }
