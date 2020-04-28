@@ -1,0 +1,248 @@
+#!/nix/store/ffli6m23501dkiznwlkf6n4xvrj02snr-bash-4.4-p23/bin/sh
+#
+# src
+#
+# src is a simple script to manage a directory containing multiple sources. src
+# supports git repositories, tarballs and zip archives as possible sources. To
+# enable src to manage sources, create a .srcfile in the respective directory
+# and add one line for each source you want src to manage. The syntax is simple:
+#
+# [type] [url] [path]
+#
+# Comments start with '#'.
+#
+# This script is licensed under the MIT License:
+#
+# Copyright 2020 joachimschmidt557
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the “Software”), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+srcfile=$(pwd)/.srcfile
+
+usage() {
+	## Print usage information
+	cat <<EOF
+src
+manages source directories
+
+Usage: src [COMMAND]
+
+Commands:
+	a, add		Add a source
+	d, diff		Compare actual state of directory with wanted state
+	i, install	Install a copy of this script into the current directory
+	ls, list	List managed directories
+	rm, remove	Remove a source directory
+	u, update	Update source directory
+
+Flags:
+	--help, -h	Displays this help
+	--version, -v	Show version and exit
+EOF
+}
+
+add_item() {
+	## Add this item repo to the srcfile
+	echo "$1" "$2" "$3" >> "$srcfile"
+}
+
+rm_item() {
+	## Remove this entry from the srcfile and delete the source files afterwards
+	tmp="$srcfile.tmp"
+
+	awk "\$3 != \"$1\" { print }" "$srcfile" > "$tmp"
+	mv "$tmp" "$srcfile"
+
+	rm -rf "$1"
+}
+
+update_gitrepo() {
+	## Update/clone this git repo
+	if ! [ -d "$2" ] ; then
+		git clone "$1" "$2"
+		updated="$updated $2"
+	else
+		count=$(git -C "$2" pull | wc -l)
+		if [ "$count" -gt 1 ] ; then
+			updated="$updated $2"
+		fi
+	fi
+}
+
+update_tarfile() {
+	## Download and extract this tarfile if it doesn't exist yet
+	if ! [ -d "$2" ] ; then
+		wget "$1"
+		tar -xf "$1" -C "$2"
+		updated="$updated $2"
+	else
+		echo "Already downloaded"
+	fi
+}
+
+update_zipfile() {
+	## Download and extract this zipfile if it doesn't exist yet
+	if ! [ -d "$2" ] ; then
+		wget "$1" "${2}.zip"
+		unzip "${2}.zip" -d "$2"
+		updated="$updated $2"
+	else
+		echo "Already downloaded"
+	fi
+}
+
+update_item() {
+	## Updates an individual item
+	echo "src: Updating: $3"
+	case "$1" in
+		"git")
+			update_gitrepo "$2" "$3"
+			;;
+		"tar")
+			update_tarfile "$2" "$3"
+			;;
+		"zip")
+			update_zipfile "$2" "$3"
+			;;
+		*)
+			echo "src: Not a valid source type: $1"
+			errors="$errors $3"
+			;;
+	esac
+}
+
+preproc() {
+	## Preprocess the srcfile (remove comments etc.)
+	if ! [ -f "$srcfile" ] ; then
+		echo "src: .srcfile not found!"
+		exit 1
+	fi
+
+	tmp="$srcfile.tmp"
+	sed 's/\s*#.*$//; /^\s*$/d' < "$srcfile" > "$tmp"
+}
+
+cleanup() {
+	## Cleanup everything (temp files)
+	rm "$tmp"
+}
+
+cmd_update() {
+	## Parse srcfile and update
+	preproc
+
+	# With no arguments, update all
+	while read -r type url path; do
+		if [ -z "$1" ] || [ "$1" = "$path" ] ; then
+			update_item "$type" "$url" "$path"
+		fi
+	done < "$tmp"
+
+	if [ -n "$errors" ]; then
+		echo "src: Errors occurred during:$updated"
+	fi
+
+	if [ -n "$updated" ]; then
+		echo "src: Updated:$updated"
+	else
+		echo "src: Nothing updated"
+	fi
+
+	cleanup
+}
+
+cmd_list() {
+	## Parse srcfile and list all source directories which should be managed by
+	## src
+	preproc
+
+	cut -d' ' -f3 < "$tmp"
+
+	cleanup
+}
+
+cmd_diff() {
+	## Show the difference of the sourcefile and the actual content of the
+	## directory
+	preproc
+
+	want=".src_want"
+	actual=".src_actual"
+
+	true > "$want"
+	true > "$actual"
+
+	# Set up want
+	cut -d' ' -f3 < "$tmp" | sort > "$want"
+
+	# Set up actual
+	find . -maxdepth 1 -type d | tail -n +2 | sed 's|^./||' | sort > "$actual"
+
+	# Diff
+	diff -u0 "$want" "$actual"
+
+	rm "$want" "$actual"
+	cleanup
+}
+
+cmd_install() {
+	## Install a copy of this script into the current working directory
+	script_path="$(realpath "$0")"
+	if install -m755 "$script_path" "$(pwd)"; then
+		echo "src: Install successful"
+	else
+		echo "src: Error during install"
+	fi
+}
+
+cmd="$1"
+shift
+case "$cmd" in
+	"u"|"update")
+		cmd_update "$@"
+		;;
+	"a"|"add")
+		add_item "$@"
+		update_item "$@"
+		;;
+	"rm"|"remove")
+		rm_item "$@"
+		;;
+	"ls"|"list")
+		cmd_list
+		;;
+	"d"|"diff")
+		cmd_diff
+		;;
+	"i"|"install")
+		cmd_install
+		;;
+	"--help"|"-h")
+		usage
+		exit 1
+		;;
+	"--version"|"-v")
+		echo "src version 0.1.0"
+		exit 1
+		;;
+	*)
+		echo "src: Invalid command or flag"
+		exit 1
+		;;
+esac
