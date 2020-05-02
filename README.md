@@ -1,5 +1,7 @@
 # zigfd
 
+[![Build Status](https://travis-ci.org/joachimschmidt557/zigfd.svg?branch=master)](https://travis-ci.org/joachimschmidt557/zigfd)
+
 Recursively find files and directories with a regex pattern. Inspired
 by [fd](https://github.com/sharkdp/fd).
 
