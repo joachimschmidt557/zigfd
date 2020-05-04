@@ -16,18 +16,15 @@ const BreadthFirstWalker = walkdir.BreadthFirstWalker;
 
 const actions = @import("actions.zig");
 const Action = actions.Action;
+const Filter = @import("filter.zig").Filter;
 
 const BufferedOut = std.io.BufferedOutStream(4096, std.fs.File.OutStream);
 
 // pub const io_mode = .evented;
 
-fn handleEntry(e: Entry, re: ?regex.Regex, action: *Action, print_options: actions.PrintOptions, out_stream: *BufferedOut) void {
-    var reg = re;
-
-    if (reg) |*pattern| {
-        if (!(pattern.partialMatch(e.name) catch return)) return;
-    }
-
+fn handleEntry(e: Entry, filter: Filter, action: *Action, print_options: actions.PrintOptions, out_stream: *BufferedOut) void {
+    if (!(filter.matches(e) catch return)) return;
+    
     // const held_action = locked_action.acquire();
     // defer held_action.release();
 
@@ -74,6 +71,7 @@ pub fn main() !void {
         clap.parseParam("-h, --help Display this help and exit.") catch unreachable,
         clap.parseParam("-v, --version Display version info and exit.") catch unreachable,
         clap.parseParam("-H, --hidden Include hidden files and directories") catch unreachable,
+        clap.parseParam("-p, --full-path Match the pattern against the full path instead of the file name") catch unreachable,
         clap.parseParam("-0, --print0 Separate search results with a null character") catch unreachable,
         clap.parseParam("--show-errors Show errors which were encountered during searching") catch unreachable,
 
@@ -118,6 +116,12 @@ pub fn main() !void {
         },
     };
 
+    var filter = Filter{
+        .pattern = null,
+        .full_path = args.flag("--full-path"),
+    };
+    defer filter.deinit();
+    // var locked_action = Locked(Action).init(action);
     var action: Action = Action.Print;
 
     // Action
@@ -150,11 +154,6 @@ pub fn main() !void {
         .errors = args.flag("--show-errors"),
     };
 
-    // var locked_action = Locked(Action).init(action);
-
-    var re: ?regex.Regex = null;
-    defer if (re) |*x| x.deinit();
-
     var paths = ArrayList([]const u8).init(allocator);
     defer paths.deinit();
 
@@ -164,11 +163,11 @@ pub fn main() !void {
     // Positionals
     for (args.positionals()) |pos| {
         // If a regex is already compiled, we are looking at paths
-        if (re) |_| {
+        if (filter.pattern) |_| {
             try paths.append(pos);
         }
         else {
-            re = try regex.Regex.compile(allocator, pos);
+            filter.pattern = try regex.Regex.compile(allocator, pos);
         }
     }
 
@@ -186,7 +185,7 @@ pub fn main() !void {
         inner: while (true) {
             if (walker.next()) |entry| {
                 if (entry) |e| {
-                    handleEntry(e, re, &action, print_options, &buffered_stdout);
+                    handleEntry(e, filter, &action, print_options, &buffered_stdout);
 
                     switch (action) {
                         .ExecuteBatch => {},
