@@ -77,6 +77,7 @@ pub fn main() !void {
 
         // Options
         clap.parseParam("-d, --max-depth <NUM> Set a limit for the depth") catch unreachable,
+        clap.parseParam("-e, --extension <ext> Set a limit for the depth") catch unreachable,
         clap.parseParam("-c, --color <when> Declare when to use colored output") catch unreachable,
         clap.parseParam("-x, --exec <cmd> Execute a command for each search result") catch unreachable,
         clap.parseParam("-X, --exec-batch <cmd> Execute a command with all search results at once") catch unreachable,
@@ -116,11 +117,10 @@ pub fn main() !void {
         },
     };
 
-    var filter = Filter{
-        .pattern = null,
-        .full_path = args.flag("--full-path"),
-    };
+    var filter = Filter.all;
     defer filter.deinit();
+    filter.full_path = args.flag("--full-path");
+
     // var locked_action = Locked(Action).init(action);
     var action: Action = Action.Print;
 
