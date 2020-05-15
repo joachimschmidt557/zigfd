@@ -16,14 +16,16 @@ const BreadthFirstWalker = walkdir.BreadthFirstWalker;
 
 const actions = @import("actions.zig");
 const Action = actions.Action;
-const Filter = @import("filter.zig").Filter;
+const filters = @import("filter.zig");
+const Filter = filters.Filter;
+const TypeFilter = filters.TypeFilter;
 
 const BufferedOut = std.io.BufferedOutStream(4096, std.fs.File.OutStream);
 
 // pub const io_mode = .evented;
 
-fn handleEntry(e: Entry, filter: Filter, action: *Action, print_options: actions.PrintOptions, out_stream: *BufferedOut) void {
-    if (!(filter.matches(e) catch return)) return;
+fn handleEntry(e: Entry, f: Filter, action: *Action, print_options: actions.PrintOptions, out_stream: *BufferedOut) void {
+    if (!(f.matches(e) catch return)) return;
     
     // const held_action = locked_action.acquire();
     // defer held_action.release();
@@ -77,7 +79,8 @@ pub fn main() !void {
 
         // Options
         clap.parseParam("-d, --max-depth <NUM> Set a limit for the depth") catch unreachable,
-        clap.parseParam("-e, --extension <ext> Set a limit for the depth") catch unreachable,
+        clap.parseParam("-t, --type <filetype> Filter by entry type") catch unreachable,
+        clap.parseParam("-e, --extension <ext> Additionally filter by a file extension") catch unreachable,
         clap.parseParam("-c, --color <when> Declare when to use colored output") catch unreachable,
         clap.parseParam("-x, --exec <cmd> Execute a command for each search result") catch unreachable,
         clap.parseParam("-X, --exec-batch <cmd> Execute a command with all search results at once") catch unreachable,
@@ -120,6 +123,20 @@ pub fn main() !void {
     var filter = Filter.all;
     defer filter.deinit();
     filter.full_path = args.flag("--full-path");
+
+    if (args.option("--type")) |t| {
+        filter.types = TypeFilter.none;
+        if (std.mem.eql(u8, "f", t)) {
+            filter.types.?.file = true;
+        } else if (std.mem.eql(u8, "d", t)) {
+            filter.types.?.directory = true;
+        } else if (std.mem.eql(u8, "l", t)) {
+            filter.types.?.symlink = true;
+        } else {
+            std.debug.warn("zigfd: '{}' is not a valid type.\n", .{ t });
+            return;
+        }
+    }
 
     // var locked_action = Locked(Action).init(action);
     var action: Action = Action.Print;
