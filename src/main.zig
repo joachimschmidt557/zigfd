@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 // const Batch = std.event.Batch;
 // const Group = std.event.Group;
@@ -24,9 +25,61 @@ const BufferedOut = std.io.BufferedOutStream(4096, std.fs.File.OutStream);
 
 // pub const io_mode = .evented;
 
+fn parseFilter(args: var) Filter {
+    var filter = Filter.all;
+    filter.full_path = args.flag("--full-path");
+
+    if (args.option("--type")) |t| {
+        filter.types = TypeFilter.none;
+        if (std.mem.eql(u8, "f", t) or std.mem.eql(u8, "file", t)) {
+            filter.types.?.file = true;
+        } else if (std.mem.eql(u8, "d", t) or std.mem.eql(u8, "directory", t)) {
+            filter.types.?.directory = true;
+        } else if (std.mem.eql(u8, "l", t) or std.mem.eql(u8, "link", t)) {
+            filter.types.?.symlink = true;
+        } else {
+            std.debug.warn("zigfd: '{}' is not a valid type.\n", .{t});
+            std.process.exit(1);
+        }
+    }
+
+    if (args.option("--extension")) |ext| {
+        filter.extension = ext;
+    }
+
+    return filter;
+}
+
+fn parseWalkOptions(args: var) walkdir.Options {
+    return walkdir.Options{
+        .include_hidden = args.flag("--hidden"),
+        .max_depth = blk: {
+            if (args.option("--max-depth")) |d| {
+                break :blk std.fmt.parseUnsigned(usize, d, 10) catch null;
+            } else {
+                break :blk null;
+            }
+        },
+    };
+}
+
+fn parseAction(args: var, allocator: *Allocator) Action {
+    if (args.option("--exec")) |cmd| {
+        return Action{
+            .Execute = actions.ExecuteTarget.init(allocator, cmd),
+        };
+    } else if (args.option("--exec-batch")) |cmd| {
+        return Action{
+            .ExecuteBatch = actions.ExecuteBatchTarget.init(allocator, cmd),
+        };
+    } else {
+        return Action.Print;
+    }
+}
+
 fn handleEntry(e: Entry, f: Filter, action: *Action, print_options: actions.PrintOptions, out_stream: *BufferedOut) void {
     if (!(f.matches(e) catch return)) return;
-    
+
     // const held_action = locked_action.acquire();
     // defer held_action.release();
 
@@ -109,48 +162,15 @@ pub fn main() !void {
     }
 
     // Walk options
-    const walk_options = walkdir.Options{
-        .include_hidden = args.flag("--hidden"),
-        .max_depth = blk: {
-            if (args.option("--max-depth")) |d| {
-                break :blk std.fmt.parseUnsigned(usize, d, 10) catch null;
-            } else {
-                break :blk null;
-            }
-        },
-    };
+    const walk_options = parseWalkOptions(args);
 
-    var filter = Filter.all;
+    var filter = parseFilter(args);
     defer filter.deinit();
-    filter.full_path = args.flag("--full-path");
-
-    if (args.option("--type")) |t| {
-        filter.types = TypeFilter.none;
-        if (std.mem.eql(u8, "f", t)) {
-            filter.types.?.file = true;
-        } else if (std.mem.eql(u8, "d", t)) {
-            filter.types.?.directory = true;
-        } else if (std.mem.eql(u8, "l", t)) {
-            filter.types.?.symlink = true;
-        } else {
-            std.debug.warn("zigfd: '{}' is not a valid type.\n", .{ t });
-            return;
-        }
-    }
 
     // var locked_action = Locked(Action).init(action);
-    var action: Action = Action.Print;
 
     // Action
-    if (args.option("--exec")) |cmd| {
-        action = Action{
-            .Execute = actions.ExecuteTarget.init(allocator, cmd),
-        };
-    } else if (args.option("--exec-batch")) |cmd| {
-        action = Action{
-            .ExecuteBatch = actions.ExecuteBatchTarget.init(allocator, cmd),
-        };
-    }
+    var action = parseAction(args, allocator);
 
     // Print options
     var lsc: ?LsColors = null;
@@ -159,7 +179,7 @@ pub fn main() !void {
     const print_options = actions.PrintOptions{
         .color = blk: {
             if (args.option("--color")) |when| {
-                if (std.mem.eql(u8, "always", when) or stdout_file.isTty()) {
+                if (std.mem.eql(u8, "always", when) or std.io.getStdErr().isTty()) {
                     lsc = try LsColors.fromEnv(allocator);
                     break :blk &lsc.?;
                 }
@@ -182,8 +202,7 @@ pub fn main() !void {
         // If a regex is already compiled, we are looking at paths
         if (filter.pattern) |_| {
             try paths.append(pos);
-        }
-        else {
+        } else {
             filter.pattern = try regex.Regex.compile(allocator, pos);
         }
     }

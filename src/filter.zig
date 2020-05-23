@@ -38,10 +38,16 @@ pub const TypeFilter = struct {
     }
 };
 
+fn hasExtension(name: []const u8, ext: []const u8) bool {
+    return std.mem.endsWith(u8, name, ext) and name.len > ext.len and name[name.len - ext.len - 1] == '.';
+}
+
 pub const Filter = struct {
     pattern: ?Regex,
     full_path: bool,
-    extensions: []const []const u8,
+    // extensions: []const []const u8,
+    // TODO enable multiple option arguments
+    extension: ?[]const u8,
     types: ?TypeFilter,
 
     const Self = @This();
@@ -49,7 +55,7 @@ pub const Filter = struct {
     pub const all = Self{
         .pattern = null,
         .full_path = false,
-        .extensions = &[_][]const u8{},
+        .extension = null,
         .types = null,
     };
 
@@ -68,8 +74,8 @@ pub const Filter = struct {
             }
         }
 
-        for (self.extensions) |ext| {
-            if (!std.mem.endsWith(u8, text, ext)) {
+        if (self.extension) |ext| {
+            if (!hasExtension(text, ext)) {
                 return false;
             }
         }
