@@ -21,7 +21,7 @@ const filters = @import("filter.zig");
 const Filter = filters.Filter;
 const TypeFilter = filters.TypeFilter;
 
-const BufferedOut = std.io.BufferedOutStream(4096, std.fs.File.OutStream);
+const BufferedWriter = std.io.BufferedWriter(4096, std.fs.File.Writer);
 
 // pub const io_mode = .evented;
 
@@ -77,7 +77,13 @@ fn parseAction(args: var, allocator: *Allocator) Action {
     }
 }
 
-fn handleEntry(e: Entry, f: Filter, action: *Action, print_options: actions.PrintOptions, out_stream: *BufferedOut) void {
+fn handleEntry(
+    e: Entry,
+    f: Filter,
+    action: *Action,
+    print_options: actions.PrintOptions,
+    writer: *BufferedWriter,
+) void {
     if (!(f.matches(e) catch return)) return;
 
     // const held_action = locked_action.acquire();
@@ -85,11 +91,11 @@ fn handleEntry(e: Entry, f: Filter, action: *Action, print_options: actions.Prin
 
     switch (action.*) {
         .Print => {
-            // const held = locked_out_stream.acquire();
+            // const held = locked_writer.acquire();
             // defer held.release();
 
-            // const out = held.value.outStream();
-            actions.printEntry(e, out_stream.outStream(), print_options) catch return;
+            // const out = held.value.writer();
+            actions.printEntry(e, writer.writer(), print_options) catch return;
         },
         .Execute => |*a| a.do(e) catch return,
         .ExecuteBatch => |*a| a.do(e) catch return,
@@ -105,9 +111,9 @@ pub fn main() !void {
 
     // Set up stdout
     const stdout_file = std.io.getStdOut();
-    const stdout = stdout_file.outStream();
+    const stdout = stdout_file.writer();
 
-    var buffered_stdout = std.io.bufferedOutStream(stdout);
+    var buffered_stdout = std.io.bufferedWriter(stdout);
     defer buffered_stdout.flush() catch {};
 
     // var buffered_stdout_locked = Locked(BufferedOut).init(buffered_stdout);
@@ -155,10 +161,10 @@ pub fn main() !void {
 
     // Flags
     if (args.flag("--help")) {
-        return try clap.help(buffered_stdout.outStream(), &params);
+        return try clap.help(buffered_stdout.writer(), &params);
     }
     if (args.flag("--version")) {
-        return try buffered_stdout.outStream().print("zigfd version {}\n", .{"0.0.1"});
+        return try buffered_stdout.writer().print("zigfd version {}\n", .{"0.0.1"});
     }
 
     // Walk options
@@ -234,8 +240,8 @@ pub fn main() !void {
                 // const held = buffered_stdout_locked.acquire();
                 // defer held.release();
 
-                // const out = held.value.outStream();
-                try actions.printError(err, buffered_stdout.outStream(), print_options);
+                // const out = held.value.writer();
+                try actions.printError(err, buffered_stdout.writer(), print_options);
             }
         }
     }
