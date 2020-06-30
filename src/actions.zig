@@ -17,6 +17,10 @@ pub const Action = union(ActionType) {
     Print,
     Execute: ExecuteTarget,
     ExecuteBatch: ExecuteBatchTarget,
+
+    const Self = @This();
+
+    pub const default: Self = .Print;
 };
 
 pub const ExecuteTarget = struct {

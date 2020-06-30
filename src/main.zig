@@ -17,6 +17,7 @@ const BreadthFirstWalker = walkdir.BreadthFirstWalker;
 
 const actions = @import("actions.zig");
 const Action = actions.Action;
+const PrintOptions = actions.PrintOptions;
 const filters = @import("filter.zig");
 const Filter = filters.Filter;
 const TypeFilter = filters.TypeFilter;
@@ -24,58 +25,6 @@ const TypeFilter = filters.TypeFilter;
 const BufferedWriter = std.io.BufferedWriter(4096, std.fs.File.Writer);
 
 // pub const io_mode = .evented;
-
-fn parseFilter(args: var) Filter {
-    var filter = Filter.all;
-    filter.full_path = args.flag("--full-path");
-
-    if (args.option("--type")) |t| {
-        filter.types = TypeFilter.none;
-        if (std.mem.eql(u8, "f", t) or std.mem.eql(u8, "file", t)) {
-            filter.types.?.file = true;
-        } else if (std.mem.eql(u8, "d", t) or std.mem.eql(u8, "directory", t)) {
-            filter.types.?.directory = true;
-        } else if (std.mem.eql(u8, "l", t) or std.mem.eql(u8, "link", t)) {
-            filter.types.?.symlink = true;
-        } else {
-            std.debug.warn("zigfd: '{}' is not a valid type.\n", .{t});
-            std.process.exit(1);
-        }
-    }
-
-    if (args.option("--extension")) |ext| {
-        filter.extension = ext;
-    }
-
-    return filter;
-}
-
-fn parseWalkOptions(args: var) walkdir.Options {
-    return walkdir.Options{
-        .include_hidden = args.flag("--hidden"),
-        .max_depth = blk: {
-            if (args.option("--max-depth")) |d| {
-                break :blk std.fmt.parseUnsigned(usize, d, 10) catch null;
-            } else {
-                break :blk null;
-            }
-        },
-    };
-}
-
-fn parseAction(args: var, allocator: *Allocator) Action {
-    if (args.option("--exec")) |cmd| {
-        return Action{
-            .Execute = actions.ExecuteTarget.init(allocator, cmd),
-        };
-    } else if (args.option("--exec-batch")) |cmd| {
-        return Action{
-            .ExecuteBatch = actions.ExecuteBatchTarget.init(allocator, cmd),
-        };
-    } else {
-        return Action.Print;
-    }
-}
 
 fn handleEntry(
     e: Entry,
@@ -126,26 +75,68 @@ pub fn main() !void {
     // }
 
     // These are the command-line args
-    @setEvalBranchQuota(10000);
-    const params = comptime [_]clap.Param(clap.Help){
-        // Flags
-        clap.parseParam("-h, --help Display this help and exit.") catch unreachable,
-        clap.parseParam("-v, --version Display version info and exit.") catch unreachable,
-        clap.parseParam("-H, --hidden Include hidden files and directories") catch unreachable,
-        clap.parseParam("-p, --full-path Match the pattern against the full path instead of the file name") catch unreachable,
-        clap.parseParam("-0, --print0 Separate search results with a null character") catch unreachable,
-        clap.parseParam("--show-errors Show errors which were encountered during searching") catch unreachable,
+    const params = [_]clap.Param(u8){
+        // flags
+        clap.Param(u8){
+            .id = 'h',
+            .names = clap.Names{ .short = 'h', .long = "help" },
+        },
+        clap.Param(u8){
+            .id = 'v',
+            .names = clap.Names{ .short = 'v', .long = "version" },
+        },
+        clap.Param(u8){
+            .id = 'H',
+            .names = clap.Names{ .short = 'H', .long = "hidden" },
+        },
+        clap.Param(u8){
+            .id = 'p',
+            .names = clap.Names{ .short = 'p', .long = "full-path" },
+        },
+        clap.Param(u8){
+            .id = '0',
+            .names = clap.Names{ .short = '0', .long = "print0" },
+        },
+        clap.Param(u8){
+            .id = 's',
+            .names = clap.Names{ .long = "show-errors" },
+        },
 
         // Options
-        clap.parseParam("-d, --max-depth <NUM> Set a limit for the depth") catch unreachable,
-        clap.parseParam("-t, --type <filetype> Filter by entry type") catch unreachable,
-        clap.parseParam("-e, --extension <ext> Additionally filter by a file extension") catch unreachable,
-        clap.parseParam("-c, --color <when> Declare when to use colored output") catch unreachable,
-        clap.parseParam("-x, --exec <cmd> Execute a command for each search result") catch unreachable,
-        clap.parseParam("-X, --exec-batch <cmd> Execute a command with all search results at once") catch unreachable,
+        clap.Param(u8){
+            .id = 'd',
+            .names = clap.Names{ .short = 'd', .long = "max-depth" },
+            .takes_value = true,
+        },
+        clap.Param(u8){
+            .id = 't',
+            .names = clap.Names{ .short = 't', .long = "type" },
+            .takes_value = true,
+        },
+        clap.Param(u8){
+            .id = 'e',
+            .names = clap.Names{ .short = 'e', .long = "extension" },
+            .takes_value = true,
+        },
+        clap.Param(u8){
+            .id = 'c',
+            .names = clap.Names{ .short = 'c', .long = "color" },
+            .takes_value = true,
+        },
+        clap.Param(u8){
+            .id = 'x',
+            .names = clap.Names{ .short = 'x', .long = "exec" },
+            .takes_value = true,
+        },
+        clap.Param(u8){
+            .id = 'X',
+            .names = clap.Names{ .short = 'X', .long = "exec-batch" },
+            .takes_value = true,
+        },
 
         // Positionals
-        clap.Param(clap.Help){
+        clap.Param(u8){
+            .id = '*',
             .takes_value = true,
         },
     };
@@ -156,46 +147,27 @@ pub fn main() !void {
     defer iter.deinit();
 
     // Finally we can parse the arguments
-    var args = try clap.ComptimeClap(clap.Help, &params).parse(allocator, clap.args.OsIterator, &iter);
-    defer args.deinit();
-
-    // Flags
-    if (args.flag("--help")) {
-        return try clap.help(buffered_stdout.writer(), &params);
-    }
-    if (args.flag("--version")) {
-        return try buffered_stdout.writer().print("zigfd version {}\n", .{"0.0.1"});
-    }
+    var parser = clap.StreamingClap(u8, clap.args.OsIterator){
+        .params = &params,
+        .iter = &iter,
+    };
 
     // Walk options
-    const walk_options = parseWalkOptions(args);
+    var walk_options = walkdir.Options.default;
 
-    var filter = parseFilter(args);
+    var filter = Filter.all;
     defer filter.deinit();
 
     // var locked_action = Locked(Action).init(action);
 
     // Action
-    var action = parseAction(args, allocator);
+    var action = Action.default;
 
     // Print options
     var lsc: ?LsColors = null;
     defer if (lsc) |*x| x.deinit();
 
-    const print_options = actions.PrintOptions{
-        .color = blk: {
-            if (args.option("--color")) |when| {
-                if (std.mem.eql(u8, "always", when) or std.io.getStdErr().isTty()) {
-                    lsc = try LsColors.fromEnv(allocator);
-                    break :blk &lsc.?;
-                }
-            }
-
-            break :blk null;
-        },
-        .null_sep = args.flag("--print0"),
-        .errors = args.flag("--show-errors"),
-    };
+    var print_options = PrintOptions.default;
 
     var paths = ArrayList([]const u8).init(allocator);
     defer paths.deinit();
@@ -203,13 +175,49 @@ pub fn main() !void {
     // var group = Group(void).init(allocator);
     // var batch = Batch(void, 8, .auto_async).init();
 
-    // Positionals
-    for (args.positionals()) |pos| {
-        // If a regex is already compiled, we are looking at paths
-        if (filter.pattern) |_| {
-            try paths.append(pos);
-        } else {
-            filter.pattern = try regex.Regex.compile(allocator, pos);
+    // Because we use a streaming parser, we have to consume each argument parsed individually.
+    while (try parser.next()) |arg| {
+        // arg.param will point to the parameter which matched the argument.
+        switch (arg.param.id) {
+            'h' => return std.debug.warn("Help!\n", .{}),
+            'v' => return try buffered_stdout.writer().print("zigfd version {}\n", .{"0.0.1"}),
+            'H' => walk_options.include_hidden = true,
+            'p' => filter.full_path = true,
+            '0' => print_options.null_sep = true,
+            's' => print_options.errors = true,
+            'd' => walk_options.max_depth = try std.fmt.parseInt(usize, arg.value.?, 10),
+            't' => {
+                const t = arg.value.?;
+                filter.types = TypeFilter.none;
+                if (std.mem.eql(u8, "f", t) or std.mem.eql(u8, "file", t)) {
+                    filter.types.?.file = true;
+                } else if (std.mem.eql(u8, "d", t) or std.mem.eql(u8, "directory", t)) {
+                    filter.types.?.directory = true;
+                } else if (std.mem.eql(u8, "l", t) or std.mem.eql(u8, "link", t)) {
+                    filter.types.?.symlink = true;
+                } else {
+                    std.debug.warn("zigfd: '{}' is not a valid type.\n", .{t});
+                    std.process.exit(1);
+                }
+            },
+            'e' => filter.extension = arg.value.?,
+            'c' => {},
+            'x' => action = Action{
+                .Execute = actions.ExecuteTarget.init(allocator, arg.value.?),
+            },
+            'X' => action = Action{
+                .ExecuteBatch = actions.ExecuteBatchTarget.init(allocator, arg.value.?),
+            },
+            '*' => {
+                // Positionals
+                // If a regex is already compiled, we are looking at paths
+                if (filter.pattern) |_| {
+                    try paths.append(arg.value.?);
+                } else {
+                    filter.pattern = try regex.Regex.compile(allocator, arg.value.?);
+                }
+            },
+            else => unreachable,
         }
     }
 
