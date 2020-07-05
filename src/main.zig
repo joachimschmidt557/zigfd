@@ -17,6 +17,7 @@ const BreadthFirstWalker = walkdir.BreadthFirstWalker;
 
 const actions = @import("actions.zig");
 const Action = actions.Action;
+const ColorOption = actions.ColorOption;
 const PrintOptions = actions.PrintOptions;
 const filters = @import("filter.zig");
 const Filter = filters.Filter;
@@ -167,6 +168,7 @@ pub fn main() !void {
     var lsc: ?LsColors = null;
     defer if (lsc) |*x| x.deinit();
 
+    var color_option = ColorOption.default;
     var print_options = PrintOptions.default;
 
     var paths = ArrayList([]const u8).init(allocator);
@@ -179,29 +181,48 @@ pub fn main() !void {
     while (try parser.next()) |arg| {
         // arg.param will point to the parameter which matched the argument.
         switch (arg.param.id) {
-            'h' => return std.debug.warn("Help!\n", .{}),
-            'v' => return try buffered_stdout.writer().print("zigfd version {}\n", .{"0.0.1"}),
+            'h' => {
+                try std.io.getStdErr().writer().print("Help!\n", .{});
+                std.process.exit(1);
+            },
+            'v' => {
+                try std.io.getStdErr().writer().print("zigfd version {}\n", .{"0.0.1"});
+                std.process.exit(1);
+            },
             'H' => walk_options.include_hidden = true,
             'p' => filter.full_path = true,
             '0' => print_options.null_sep = true,
             's' => print_options.errors = true,
             'd' => walk_options.max_depth = try std.fmt.parseInt(usize, arg.value.?, 10),
             't' => {
-                const t = arg.value.?;
-                filter.types = TypeFilter.none;
-                if (std.mem.eql(u8, "f", t) or std.mem.eql(u8, "file", t)) {
+                if (filter.types == null) filter.types = TypeFilter.none;
+                if (std.mem.eql(u8, "f", arg.value.?) or std.mem.eql(u8, "file", arg.value.?)) {
                     filter.types.?.file = true;
-                } else if (std.mem.eql(u8, "d", t) or std.mem.eql(u8, "directory", t)) {
+                } else if (std.mem.eql(u8, "d", arg.value.?) or std.mem.eql(u8, "directory", arg.value.?)) {
                     filter.types.?.directory = true;
-                } else if (std.mem.eql(u8, "l", t) or std.mem.eql(u8, "link", t)) {
+                } else if (std.mem.eql(u8, "l", arg.value.?) or std.mem.eql(u8, "link", arg.value.?)) {
                     filter.types.?.symlink = true;
                 } else {
-                    std.debug.warn("zigfd: '{}' is not a valid type.\n", .{t});
+                    std.log.emerg(.Args, "zigfd: '{}' is not a valid type.\n", .{arg.value.?});
                     std.process.exit(1);
                 }
             },
-            'e' => filter.extension = arg.value.?,
-            'c' => {},
+            'e' => {
+                if (filter.extensions == null) filter.extensions = ArrayList([]const u8).init(allocator);
+                try filter.extensions.?.append(try allocator.dupe(u8, arg.value.?));
+            },
+            'c' => {
+                if (std.mem.eql(u8, "auto", arg.value.?)) {
+                    color_option = .Auto;
+                } else if (std.mem.eql(u8, "always", arg.value.?)) {
+                    color_option = .Always;
+                } else if (std.mem.eql(u8, "never", arg.value.?)) {
+                    color_option = .Never;
+                } else {
+                    std.log.emerg(.Args, "zigfd: '{}' is not a valid color argument.\n", .{arg.value.?});
+                    std.process.exit(1);
+                }
+            },
             'x' => action = Action{
                 .Execute = actions.ExecuteTarget.init(allocator, arg.value.?),
             },
@@ -219,6 +240,12 @@ pub fn main() !void {
             },
             else => unreachable,
         }
+    }
+
+    // Set up colored output
+    if (color_option == .Always or color_option == .Auto and std.io.getStdErr().isTty()) {
+        lsc = try LsColors.fromEnv(allocator);
+        print_options.color = &lsc.?;
     }
 
     // If no search paths were given, default to the current
@@ -245,11 +272,7 @@ pub fn main() !void {
                     continue :outer;
                 }
             } else |err| {
-                // const held = buffered_stdout_locked.acquire();
-                // defer held.release();
-
-                // const out = held.value.writer();
-                try actions.printError(err, buffered_stdout.writer(), print_options);
+                std.log.err(.Walkdir, "Error encountered: {}\n", .{err});
             }
         }
     }

@@ -1,4 +1,5 @@
 const std = @import("std");
+const ArrayList = std.ArrayList;
 
 const walkdir = @import("walkdir");
 const Entry = walkdir.Entry;
@@ -45,9 +46,7 @@ fn hasExtension(name: []const u8, ext: []const u8) bool {
 pub const Filter = struct {
     pattern: ?Regex,
     full_path: bool,
-    // extensions: []const []const u8,
-    // TODO enable multiple option arguments
-    extension: ?[]const u8,
+    extensions: ?ArrayList([]const u8),
     types: ?TypeFilter,
 
     const Self = @This();
@@ -55,12 +54,16 @@ pub const Filter = struct {
     pub const all = Self{
         .pattern = null,
         .full_path = false,
-        .extension = null,
+        .extensions = null,
         .types = null,
     };
 
     pub fn deinit(self: *Self) void {
         if (self.pattern) |*r| r.deinit();
+        if (self.extensions) |ext| {
+            for (ext.items) |x| ext.allocator.free(x);
+            ext.deinit();
+        }
     }
 
     pub fn matches(self: Self, entry: Entry) !bool {
@@ -74,10 +77,12 @@ pub const Filter = struct {
             }
         }
 
-        if (self.extension) |ext| {
-            if (!hasExtension(text, ext)) {
-                return false;
-            }
+        if (self.extensions) |ext| {
+            for (ext.items) |x| {
+                if (hasExtension(text, x)) {
+                    break;
+                }
+            } else return false;
         }
 
         if (self.types) |types| {

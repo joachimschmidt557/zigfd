@@ -24,42 +24,42 @@ pub const Action = union(ActionType) {
 };
 
 pub const ExecuteTarget = struct {
-    alloc: *Allocator,
+    allocator: *Allocator,
     cmd: []const u8,
 
     const Self = @This();
 
-    pub fn init(alloc: *Allocator, cmd: []const u8) Self {
+    pub fn init(allocator: *Allocator, cmd: []const u8) Self {
         return Self{
-            .alloc = alloc,
+            .allocator = allocator,
             .cmd = cmd,
         };
     }
 
     pub fn do(self: *Self, entry: Entry) !void {
-        var cmd = ArrayList([]const u8).init(self.alloc);
+        var cmd = ArrayList([]const u8).init(self.allocator);
         defer cmd.deinit();
 
         try cmd.append(self.cmd);
         try cmd.append(entry.relative_path);
 
-        var child_process = try ChildProcess.init(cmd.items, self.alloc);
+        var child_process = try ChildProcess.init(cmd.items, self.allocator);
         const term = try child_process.spawnAndWait();
     }
 };
 
 pub const ExecuteBatchTarget = struct {
     cmd: []const u8,
-    alloc: *Allocator,
+    allocator: *Allocator,
     args: ArrayList(Entry),
 
     const Self = @This();
 
-    pub fn init(alloc: *Allocator, cmd: []const u8) Self {
+    pub fn init(allocator: *Allocator, cmd: []const u8) Self {
         return Self{
             .cmd = cmd,
-            .alloc = alloc,
-            .args = ArrayList(Entry).init(alloc),
+            .allocator = allocator,
+            .args = ArrayList(Entry).init(allocator),
         };
     }
 
@@ -71,7 +71,7 @@ pub const ExecuteBatchTarget = struct {
         defer self.args.deinit();
         defer for (self.args.items) |x| x.deinit();
 
-        var cmd = ArrayList([]const u8).init(self.alloc);
+        var cmd = ArrayList([]const u8).init(self.allocator);
         defer cmd.deinit();
 
         try cmd.append(self.cmd);
@@ -79,9 +79,19 @@ pub const ExecuteBatchTarget = struct {
             try cmd.append(e.relative_path);
         }
 
-        var child_process = try ChildProcess.init(cmd.items, self.alloc);
+        var child_process = try ChildProcess.init(cmd.items, self.allocator);
         const term = try child_process.spawnAndWait();
     }
+};
+
+pub const ColorOption = enum {
+    Auto,
+    Always,
+    Never,
+
+    const Self = @This();
+
+    pub const default = Self.Auto;
 };
 
 pub const PrintOptions = struct {
@@ -104,18 +114,6 @@ pub fn printEntry(entry: Entry, writer: var, opt: PrintOptions) !void {
     } else {
         try writer.writeAll(entry.relative_path);
     }
-
-    if (opt.null_sep) {
-        try writer.writeAll(&[_]u8{0});
-    } else {
-        try writer.writeAll("\n");
-    }
-}
-
-pub fn printError(err: anyerror, writer: var, opt: PrintOptions) !void {
-    if (!opt.errors) return;
-
-    try writer.print("Error encountered: {}", .{err});
 
     if (opt.null_sep) {
         try writer.writeAll(&[_]u8{0});
