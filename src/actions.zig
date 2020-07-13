@@ -108,7 +108,7 @@ pub const PrintOptions = struct {
     };
 };
 
-pub fn printEntry(entry: Entry, writer: var, opt: PrintOptions) !void {
+pub fn printEntry(entry: Entry, writer: anytype, opt: PrintOptions) !void {
     if (opt.color) |lsc| {
         try writer.print("{}", .{lsc.styledComponents(entry.relative_path)});
     } else {
