@@ -21,43 +21,54 @@ pub const Action = union(ActionType) {
     const Self = @This();
 
     pub const default: Self = .Print;
+
+    pub fn deinit(self: *Self) void {
+        switch (self.*) {
+            .Execute => |*x| x.deinit(),
+            .ExecuteBatch => |*x| x.deinit(),
+            else => {},
+        }
+    }
 };
 
 pub const ExecuteTarget = struct {
     allocator: *Allocator,
-    cmd: []const u8,
+    cmd: ArrayList([]const u8),
 
     const Self = @This();
 
-    pub fn init(allocator: *Allocator, cmd: []const u8) Self {
+    pub fn init(allocator: *Allocator) Self {
         return Self{
             .allocator = allocator,
-            .cmd = cmd,
+            .cmd = ArrayList([]const u8).init(allocator),
         };
     }
 
+    pub fn deinit(self: *Self) void {
+        self.cmd.deinit();
+    }
+
     pub fn do(self: *Self, entry: Entry) !void {
-        var cmd = ArrayList([]const u8).init(self.allocator);
-        defer cmd.deinit();
+        try self.cmd.append(entry.relative_path);
+        defer _ = self.cmd.pop();
 
-        try cmd.append(self.cmd);
-        try cmd.append(entry.relative_path);
+        var child_process = try ChildProcess.init(self.cmd.items, self.allocator);
+        defer child_process.deinit();
 
-        var child_process = try ChildProcess.init(cmd.items, self.allocator);
         const term = try child_process.spawnAndWait();
     }
 };
 
 pub const ExecuteBatchTarget = struct {
-    cmd: []const u8,
+    cmd: ArrayList([]const u8),
     allocator: *Allocator,
     args: ArrayList(Entry),
 
     const Self = @This();
 
-    pub fn init(allocator: *Allocator, cmd: []const u8) Self {
+    pub fn init(allocator: *Allocator) Self {
         return Self{
-            .cmd = cmd,
+            .cmd = ArrayList([]const u8).init(allocator),
             .allocator = allocator,
             .args = ArrayList(Entry).init(allocator),
         };
@@ -67,19 +78,21 @@ pub const ExecuteBatchTarget = struct {
         try self.args.append(entry);
     }
 
+    pub fn deinit(self: *Self) void {
+        self.cmd.deinit();
+    }
+
     pub fn finalize(self: *Self) !void {
         defer self.args.deinit();
         defer for (self.args.items) |x| x.deinit();
 
-        var cmd = ArrayList([]const u8).init(self.allocator);
-        defer cmd.deinit();
-
-        try cmd.append(self.cmd);
         for (self.args.items) |e| {
-            try cmd.append(e.relative_path);
+            try self.cmd.append(e.relative_path);
         }
 
-        var child_process = try ChildProcess.init(cmd.items, self.allocator);
+        var child_process = try ChildProcess.init(self.cmd.items, self.allocator);
+        defer child_process.deinit();
+
         const term = try child_process.spawnAndWait();
     }
 };

@@ -34,7 +34,14 @@ fn handleEntry(
     print_options: actions.PrintOptions,
     writer: *BufferedWriter,
 ) void {
-    if (!(f.matches(e) catch return)) return;
+    const matches = f.matches(e) catch false;
+
+    defer switch (action.*) {
+        .ExecuteBatch => if (!matches) e.deinit(),
+        else => e.deinit(),
+    };
+
+    if (!matches) return;
 
     // const held_action = locked_action.acquire();
     // defer held_action.release();
@@ -127,12 +134,10 @@ pub fn main() !void {
         clap.Param(u8){
             .id = 'x',
             .names = clap.Names{ .short = 'x', .long = "exec" },
-            .takes_value = true,
         },
         clap.Param(u8){
             .id = 'X',
             .names = clap.Names{ .short = 'X', .long = "exec-batch" },
-            .takes_value = true,
         },
 
         // Positionals
@@ -163,6 +168,7 @@ pub fn main() !void {
 
     // Action
     var action = Action.default;
+    defer action.deinit();
 
     // Print options
     var lsc: ?LsColors = null;
@@ -177,69 +183,108 @@ pub fn main() !void {
     // var group = Group(void).init(allocator);
     // var batch = Batch(void, 8, .auto_async).init();
 
-    // Because we use a streaming parser, we have to consume each argument parsed individually.
-    while (try parser.next()) |arg| {
-        // arg.param will point to the parameter which matched the argument.
-        switch (arg.param.id) {
-            'h' => {
-                try std.io.getStdErr().writer().print("Help!\n", .{});
-                std.process.exit(1);
-            },
-            'v' => {
-                try std.io.getStdErr().writer().print("zigfd version {}\n", .{"0.0.1"});
-                std.process.exit(1);
-            },
-            'H' => walk_options.include_hidden = true,
-            'p' => filter.full_path = true,
-            '0' => print_options.null_sep = true,
-            's' => print_options.errors = true,
-            'd' => walk_options.max_depth = try std.fmt.parseInt(usize, arg.value.?, 10),
-            't' => {
-                if (filter.types == null) filter.types = TypeFilter.none;
-                if (std.mem.eql(u8, "f", arg.value.?) or std.mem.eql(u8, "file", arg.value.?)) {
-                    filter.types.?.file = true;
-                } else if (std.mem.eql(u8, "d", arg.value.?) or std.mem.eql(u8, "directory", arg.value.?)) {
-                    filter.types.?.directory = true;
-                } else if (std.mem.eql(u8, "l", arg.value.?) or std.mem.eql(u8, "link", arg.value.?)) {
-                    filter.types.?.symlink = true;
-                } else {
-                    std.log.emerg(.Args, "zigfd: '{}' is not a valid type.\n", .{arg.value.?});
-                    std.process.exit(1);
+    const ParseState = enum {
+        Normal,
+        Command,
+    };
+    var state: ParseState = .Normal;
+
+    while (true) {
+        switch (state) {
+            .Normal => if (try parser.next()) |arg| {
+                // arg.param will point to the parameter which matched the argument.
+                switch (arg.param.id) {
+                    'h' => {
+                        try std.io.getStdErr().writer().print("Help!\n", .{});
+                        std.process.exit(1);
+                    },
+                    'v' => {
+                        try std.io.getStdErr().writer().print("zigfd version {}\n", .{"0.0.1"});
+                        std.process.exit(1);
+                    },
+                    'H' => walk_options.include_hidden = true,
+                    'p' => filter.full_path = true,
+                    '0' => print_options.null_sep = true,
+                    's' => print_options.errors = true,
+                    'd' => walk_options.max_depth = try std.fmt.parseInt(usize, arg.value.?, 10),
+                    't' => {
+                        if (filter.types == null) filter.types = TypeFilter.none;
+                        if (std.mem.eql(u8, "f", arg.value.?) or std.mem.eql(u8, "file", arg.value.?)) {
+                            filter.types.?.file = true;
+                        } else if (std.mem.eql(u8, "d", arg.value.?) or std.mem.eql(u8, "directory", arg.value.?)) {
+                            filter.types.?.directory = true;
+                        } else if (std.mem.eql(u8, "l", arg.value.?) or std.mem.eql(u8, "link", arg.value.?)) {
+                            filter.types.?.symlink = true;
+                        } else {
+                            std.log.emerg(.Args, "zigfd: '{}' is not a valid type.\n", .{arg.value.?});
+                            std.process.exit(1);
+                        }
+                    },
+                    'e' => {
+                        if (filter.extensions == null) filter.extensions = ArrayList([]const u8).init(allocator);
+                        try filter.extensions.?.append(try allocator.dupe(u8, arg.value.?));
+                    },
+                    'c' => {
+                        if (std.mem.eql(u8, "auto", arg.value.?)) {
+                            color_option = .Auto;
+                        } else if (std.mem.eql(u8, "always", arg.value.?)) {
+                            color_option = .Always;
+                        } else if (std.mem.eql(u8, "never", arg.value.?)) {
+                            color_option = .Never;
+                        } else {
+                            std.log.emerg(.Args, "zigfd: '{}' is not a valid color argument.", .{arg.value.?});
+                            std.process.exit(1);
+                        }
+                    },
+                    'x' => {
+                        action.deinit();
+                        action = Action{
+                            .Execute = actions.ExecuteTarget.init(allocator),
+                        };
+                        state = .Command;
+                    },
+                    'X' => {
+                        action.deinit();
+                        action = Action{
+                            .ExecuteBatch = actions.ExecuteBatchTarget.init(allocator),
+                        };
+                        state = .Command;
+                    },
+                    '*' => {
+                        // Positionals
+                        // If a regex is already compiled, we are looking at paths
+                        if (filter.pattern) |_| {
+                            try paths.append(arg.value.?);
+                        } else {
+                            filter.pattern = try regex.Regex.compile(allocator, arg.value.?);
+                        }
+                    },
+                    else => unreachable,
                 }
-            },
-            'e' => {
-                if (filter.extensions == null) filter.extensions = ArrayList([]const u8).init(allocator);
-                try filter.extensions.?.append(try allocator.dupe(u8, arg.value.?));
-            },
-            'c' => {
-                if (std.mem.eql(u8, "auto", arg.value.?)) {
-                    color_option = .Auto;
-                } else if (std.mem.eql(u8, "always", arg.value.?)) {
-                    color_option = .Always;
-                } else if (std.mem.eql(u8, "never", arg.value.?)) {
-                    color_option = .Never;
+            } else break,
+            .Command => if (try iter.next()) |arg| {
+                if (std.mem.eql(u8, ";", arg)) {
+                    state = .Normal;
                 } else {
-                    std.log.emerg(.Args, "zigfd: '{}' is not a valid color argument.\n", .{arg.value.?});
-                    std.process.exit(1);
+                    switch (action) {
+                        .Execute => |*x| try x.cmd.append(arg),
+                        .ExecuteBatch => |*x| try x.cmd.append(arg),
+                        else => unreachable, // We can only get to this state by -x or -X
+                    }
                 }
-            },
-            'x' => action = Action{
-                .Execute = actions.ExecuteTarget.init(allocator, arg.value.?),
-            },
-            'X' => action = Action{
-                .ExecuteBatch = actions.ExecuteBatchTarget.init(allocator, arg.value.?),
-            },
-            '*' => {
-                // Positionals
-                // If a regex is already compiled, we are looking at paths
-                if (filter.pattern) |_| {
-                    try paths.append(arg.value.?);
-                } else {
-                    filter.pattern = try regex.Regex.compile(allocator, arg.value.?);
-                }
-            },
-            else => unreachable,
+            } else break,
         }
+    }
+
+    // Providing an empty command is an error
+    const no_command = switch (action) {
+        .Execute => |x| x.cmd.items.len == 0,
+        .ExecuteBatch => |x| x.cmd.items.len == 0,
+        else => false,
+    };
+    if (no_command) {
+        std.log.emerg(.Args, "zigfd: Expected a command after -x oder -X", .{});
+        std.process.exit(1);
     }
 
     // Set up colored output
@@ -263,11 +308,6 @@ pub fn main() !void {
             if (walker.next()) |entry| {
                 if (entry) |e| {
                     handleEntry(e, filter, &action, print_options, &buffered_stdout);
-
-                    switch (action) {
-                        .ExecuteBatch => {},
-                        else => e.deinit(),
-                    }
                 } else {
                     continue :outer;
                 }
