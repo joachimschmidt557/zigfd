@@ -92,7 +92,7 @@ pub fn main() !void {
     defer allocator.free(cli_options.paths);
 
     // Set up colored output
-    if (cli_options.color == .Always or cli_options.color == .Auto and std.io.getStdErr().isTty()) {
+    if (cli_options.color == .Always or cli_options.color == .Auto and std.io.getStdOut().isTty()) {
         lsc = try LsColors.fromEnv(allocator);
         cli_options.print.color = &lsc.?;
     }
@@ -105,7 +105,7 @@ pub fn main() !void {
         var walker = try DepthFirstWalker.init(allocator, search_path, cli_options.walkdir);
         // var walker = try BreadthFirstWalker.init(allocator, search_path, cli_options.walkdir);
 
-        inner: while (true) {
+        while (true) {
             if (walker.next()) |entry| {
                 if (entry) |e| {
                     handleEntry(e, cli_options.filter, &cli_options.action, cli_options.print, &buffered_stdout);
@@ -113,7 +113,7 @@ pub fn main() !void {
                     continue :outer;
                 }
             } else |err| {
-                std.log.err(.Walkdir, "Error encountered: {}\n", .{err});
+                std.log.err("Error encountered: {}\n", .{err});
             }
         }
     }

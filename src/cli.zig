@@ -183,7 +183,7 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
                         } else if (std.mem.eql(u8, "l", arg.value.?) or std.mem.eql(u8, "link", arg.value.?)) {
                             filter.types.?.symlink = true;
                         } else {
-                            std.log.emerg(.Args, "zigfd: '{}' is not a valid type.\n", .{arg.value.?});
+                            std.log.emerg("zigfd: '{}' is not a valid type.\n", .{arg.value.?});
                             std.process.exit(1);
                         }
                     },
@@ -199,7 +199,7 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
                         } else if (std.mem.eql(u8, "never", arg.value.?)) {
                             color_option = .Never;
                         } else {
-                            std.log.emerg(.Args, "zigfd: '{}' is not a valid color argument.", .{arg.value.?});
+                            std.log.emerg("zigfd: '{}' is not a valid color argument.", .{arg.value.?});
                             std.process.exit(1);
                         }
                     },
@@ -250,7 +250,7 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
         else => false,
     };
     if (no_command) {
-        std.log.emerg(.Args, "zigfd: Expected a command after -x oder -X", .{});
+        std.log.emerg("zigfd: Expected a command after -x oder -X", .{});
         std.process.exit(1);
     }
 
