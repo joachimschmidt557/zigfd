@@ -7,5 +7,4 @@ install:
   - mv zig-linux-x86_64-*/ bin
 
 script:
-  - ./srcmgr update
-  - ./bin/zig build
+ - ./bin/zig build

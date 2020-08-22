@@ -1,0 +1,12 @@
+[submodule "zig-lscolors"]
+	path = zig-lscolors
+	url = https://github.com/ziglibs/zig-lscolors
+[submodule "zig-regex"]
+	path = zig-regex
+	url = https://github.com/tiehuis/zig-regex
+[submodule "zig-walkdir"]
+	path = zig-walkdir
+	url = https://github.com/joachimschmidt557/zig-walkdir
+[submodule "zig-clap"]
+	path = zig-clap
+	url = https://github.com/Hejsil/zig-clap
