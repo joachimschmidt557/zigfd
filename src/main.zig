@@ -28,7 +28,7 @@ const BufferedWriter = std.io.BufferedWriter(4096, std.fs.File.Writer);
 
 // pub const io_mode = .evented;
 
-fn handleEntry(
+inline fn handleEntry(
     e: Entry,
     f: Filter,
     action: *Action,
@@ -65,7 +65,8 @@ pub fn main() !void {
     // var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     // defer arena.deinit();
     // const allocator = &arena.allocator;
-    const allocator = std.heap.c_allocator;
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = &gpa.allocator;
 
     // Set up stdout
     const stdout_file = std.io.getStdOut();
@@ -86,13 +87,16 @@ pub fn main() !void {
     var lsc: ?LsColors = null;
     defer if (lsc) |*x| x.deinit();
 
-    var cli_options = try cli.parseCliOptions(allocator);
+    var cli_options = cli.parseCliOptions(allocator) catch |err| switch (err) {
+        error.Help, error.ParseCliError => std.process.exit(1),
+        else => return err,
+    };
     defer cli_options.filter.deinit();
     defer cli_options.action.deinit();
     defer allocator.free(cli_options.paths);
 
     // Set up colored output
-    if (cli_options.color == .Always or cli_options.color == .Auto and std.io.getStdOut().isTty()) {
+    if (cli_options.color == .Always or cli_options.color == .Auto and stdout_file.isTty()) {
         lsc = try LsColors.fromEnv(allocator);
         cli_options.print.color = &lsc.?;
     }
@@ -108,7 +112,13 @@ pub fn main() !void {
         while (true) {
             if (walker.next()) |entry| {
                 if (entry) |e| {
-                    handleEntry(e, cli_options.filter, &cli_options.action, cli_options.print, &buffered_stdout);
+                    handleEntry(
+                        e,
+                        cli_options.filter,
+                        &cli_options.action,
+                        cli_options.print,
+                        &buffered_stdout,
+                    );
                 } else {
                     continue :outer;
                 }

@@ -22,7 +22,7 @@ pub const CliOptions = struct {
     print: PrintOptions,
 };
 
-/// The command-line arguments
+/// The command-line flags and options
 pub const params = [_]clap.Param(u8){
     // flags
     clap.Param(u8){
@@ -134,15 +134,19 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
 
     // Filter
     var filter = Filter.all;
+    errdefer filter.deinit();
 
     // Action
     var action = Action.default;
+    errdefer action.deinit();
 
     // Print options
     var color_option = ColorOption.default;
     var print_options = PrintOptions.default;
 
+    // Search paths
     var paths = ArrayList([]const u8).init(allocator);
+    errdefer paths.deinit();
 
     const ParseState = enum {
         Normal,
@@ -163,11 +167,11 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
                             helpText,
                             valueText,
                         );
-                        std.process.exit(1);
+                        return error.Help;
                     },
                     'v' => {
                         try std.io.getStdErr().writer().print("zigfd version {}\n", .{"0.0.1"});
-                        std.process.exit(1);
+                        return error.Help;
                     },
                     'H' => walk_options.include_hidden = true,
                     'p' => filter.full_path = true,
@@ -183,8 +187,8 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
                         } else if (std.mem.eql(u8, "l", arg.value.?) or std.mem.eql(u8, "link", arg.value.?)) {
                             filter.types.?.symlink = true;
                         } else {
-                            std.log.emerg("zigfd: '{}' is not a valid type.\n", .{arg.value.?});
-                            std.process.exit(1);
+                            std.log.emerg("'{}' is not a valid type.\n", .{arg.value.?});
+                            return error.ParseCliError;
                         }
                     },
                     'e' => {
@@ -199,8 +203,8 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
                         } else if (std.mem.eql(u8, "never", arg.value.?)) {
                             color_option = .Never;
                         } else {
-                            std.log.emerg("zigfd: '{}' is not a valid color argument.", .{arg.value.?});
-                            std.process.exit(1);
+                            std.log.emerg("'{}' is not a valid color argument.", .{arg.value.?});
+                            return error.ParseCliError;
                         }
                     },
                     'x' => {
@@ -250,8 +254,8 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
         else => false,
     };
     if (no_command) {
-        std.log.emerg("zigfd: Expected a command after -x oder -X", .{});
-        std.process.exit(1);
+        std.log.emerg("Expected a command after -x or -X", .{});
+        return error.ParseCliError;
     }
 
     return CliOptions{
