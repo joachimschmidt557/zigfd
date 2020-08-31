@@ -187,7 +187,7 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
                         } else if (std.mem.eql(u8, "l", arg.value.?) or std.mem.eql(u8, "link", arg.value.?)) {
                             filter.types.?.symlink = true;
                         } else {
-                            std.log.emerg("'{}' is not a valid type.\n", .{arg.value.?});
+                            std.log.emerg("'{}' is not a valid type.", .{arg.value.?});
                             return error.ParseCliError;
                         }
                     },

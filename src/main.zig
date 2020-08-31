@@ -66,6 +66,7 @@ pub fn main() !void {
     // defer arena.deinit();
     // const allocator = &arena.allocator;
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
     const allocator = &gpa.allocator;
 
     // Set up stdout
@@ -123,7 +124,7 @@ pub fn main() !void {
                     continue :outer;
                 }
             } else |err| {
-                std.log.err("Error encountered: {}\n", .{err});
+                std.log.err("Error encountered: {}", .{err});
             }
         }
     }
