@@ -54,22 +54,22 @@ pub const params = [_]clap.Param(u8){
     clap.Param(u8){
         .id = 'd',
         .names = clap.Names{ .short = 'd', .long = "max-depth" },
-        .takes_value = true,
+        .takes_value = clap.Values.One,
     },
     clap.Param(u8){
         .id = 't',
         .names = clap.Names{ .short = 't', .long = "type" },
-        .takes_value = true,
+        .takes_value = clap.Values.Many,
     },
     clap.Param(u8){
         .id = 'e',
         .names = clap.Names{ .short = 'e', .long = "extension" },
-        .takes_value = true,
+        .takes_value = clap.Values.Many,
     },
     clap.Param(u8){
         .id = 'c',
         .names = clap.Names{ .short = 'c', .long = "color" },
-        .takes_value = true,
+        .takes_value = clap.Values.One,
     },
     clap.Param(u8){
         .id = 'x',
@@ -83,7 +83,7 @@ pub const params = [_]clap.Param(u8){
     // Positionals
     clap.Param(u8){
         .id = '*',
-        .takes_value = true,
+        .takes_value = clap.Values.Many,
     },
 };
 
@@ -130,7 +130,7 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
     };
 
     // Walk options
-    var walk_options = walkdir.Options.default;
+    var walk_options = walkdir.Options{};
 
     // Filter
     var filter = Filter.all;
