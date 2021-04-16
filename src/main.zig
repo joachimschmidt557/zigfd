@@ -28,13 +28,13 @@ const BufferedWriter = std.io.BufferedWriter(4096, std.fs.File.Writer);
 
 // pub const io_mode = .evented;
 
-inline fn handleEntry(
+fn handleEntry(
     e: Entry,
     f: Filter,
     action: *Action,
     print_options: actions.PrintOptions,
     writer: *BufferedWriter,
-) void {
+) callconv(.Inline) void {
     const matches = f.matches(e) catch false;
 
     defer switch (action.*) {

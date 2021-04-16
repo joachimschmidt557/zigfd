@@ -123,6 +123,8 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
     var iter = try clap.args.OsIterator.init(allocator);
     defer iter.deinit();
 
+    var diag: clap.Diagnostic = undefined;
+
     // Finally we can parse the arguments
     var parser = clap.StreamingClap(u8, clap.args.OsIterator){
         .params = &params,
@@ -156,7 +158,11 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
 
     while (true) {
         switch (state) {
-            .Normal => if (try parser.next()) |arg| {
+            .Normal => if (parser.next(&diag) catch |err| {
+                // Report useful error and exit
+                diag.report(std.io.getStdErr().writer(), err) catch {};
+                return err;
+            }) |arg| {
                 // arg.param will point to the parameter which matched the argument.
                 switch (arg.param.id) {
                     'h' => {
@@ -170,7 +176,7 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
                         return error.Help;
                     },
                     'v' => {
-                        try std.io.getStdErr().writer().print("zigfd version {}\n", .{"0.0.1"});
+                        try std.io.getStdErr().writer().print("zigfd version {s}\n", .{"0.0.1"});
                         return error.Help;
                     },
                     'H' => walk_options.include_hidden = true,
@@ -187,7 +193,7 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
                         } else if (std.mem.eql(u8, "l", arg.value.?) or std.mem.eql(u8, "link", arg.value.?)) {
                             filter.types.?.symlink = true;
                         } else {
-                            std.log.emerg("'{}' is not a valid type.", .{arg.value.?});
+                            std.log.emerg("'{s}' is not a valid type.", .{arg.value.?});
                             return error.ParseCliError;
                         }
                     },
@@ -203,7 +209,7 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
                         } else if (std.mem.eql(u8, "never", arg.value.?)) {
                             color_option = .Never;
                         } else {
-                            std.log.emerg("'{}' is not a valid color argument.", .{arg.value.?});
+                            std.log.emerg("'{s}' is not a valid color argument.", .{arg.value.?});
                             return error.ParseCliError;
                         }
                     },
