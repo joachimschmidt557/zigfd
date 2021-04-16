@@ -8,21 +8,13 @@ const regex = @import("regex");
 const Regex = regex.Regex;
 
 pub const TypeFilter = struct {
-    file: bool,
-    directory: bool,
-    symlink: bool,
-    executable: bool,
-    empty: bool,
+    file: bool = false,
+    directory: bool = false,
+    symlink: bool = false,
+    executable: bool = false,
+    empty: bool = false,
 
     const Self = @This();
-
-    pub const none = Self{
-        .file = false,
-        .directory = false,
-        .symlink = false,
-        .executable = false,
-        .empty = false,
-    };
 
     pub fn matches(self: Self, entry: Entry) bool {
         return switch (entry.kind) {
@@ -44,19 +36,12 @@ fn hasExtension(name: []const u8, ext: []const u8) bool {
 }
 
 pub const Filter = struct {
-    pattern: ?Regex,
-    full_path: bool,
-    extensions: ?ArrayList([]const u8),
-    types: ?TypeFilter,
+    pattern: ?Regex = null,
+    full_path: bool = false,
+    extensions: ?ArrayList([]const u8) = null,
+    types: ?TypeFilter = null,
 
     const Self = @This();
-
-    pub const all = Self{
-        .pattern = null,
-        .full_path = false,
-        .extensions = null,
-        .types = null,
-    };
 
     pub fn deinit(self: *Self) void {
         if (self.pattern) |*r| r.deinit();

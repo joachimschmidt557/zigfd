@@ -135,7 +135,7 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
     var walk_options = walkdir.Options{};
 
     // Filter
-    var filter = Filter.all;
+    var filter = Filter{};
     errdefer filter.deinit();
 
     // Action
@@ -185,7 +185,7 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
                     's' => print_options.errors = true,
                     'd' => walk_options.max_depth = try std.fmt.parseInt(usize, arg.value.?, 10),
                     't' => {
-                        if (filter.types == null) filter.types = TypeFilter.none;
+                        if (filter.types == null) filter.types = TypeFilter{};
                         if (std.mem.eql(u8, "f", arg.value.?) or std.mem.eql(u8, "file", arg.value.?)) {
                             filter.types.?.file = true;
                         } else if (std.mem.eql(u8, "d", arg.value.?) or std.mem.eql(u8, "directory", arg.value.?)) {
