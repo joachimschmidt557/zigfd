@@ -28,13 +28,13 @@ const BufferedWriter = std.io.BufferedWriter(4096, std.fs.File.Writer);
 
 // pub const io_mode = .evented;
 
-fn handleEntry(
+inline fn handleEntry(
     e: Entry,
     f: Filter,
     action: *Action,
     print_options: actions.PrintOptions,
     writer: *BufferedWriter,
-) callconv(.Inline) void {
+) void {
     const matches = f.matches(e) catch false;
 
     defer switch (action.*) {
@@ -109,6 +109,7 @@ pub fn main() !void {
     outer: for (search_paths) |search_path| {
         var walker = try DepthFirstWalker.init(allocator, search_path, cli_options.walkdir);
         // var walker = try BreadthFirstWalker.init(allocator, search_path, cli_options.walkdir);
+        defer walker.deinit();
 
         while (true) {
             if (walker.next()) |entry| {
