@@ -54,22 +54,22 @@ pub const params = [_]clap.Param(u8){
     clap.Param(u8){
         .id = 'd',
         .names = clap.Names{ .short = 'd', .long = "max-depth" },
-        .takes_value = clap.Values.One,
+        .takes_value = clap.Values.one,
     },
     clap.Param(u8){
         .id = 't',
         .names = clap.Names{ .short = 't', .long = "type" },
-        .takes_value = clap.Values.Many,
+        .takes_value = clap.Values.many,
     },
     clap.Param(u8){
         .id = 'e',
         .names = clap.Names{ .short = 'e', .long = "extension" },
-        .takes_value = clap.Values.Many,
+        .takes_value = clap.Values.many,
     },
     clap.Param(u8){
         .id = 'c',
         .names = clap.Names{ .short = 'c', .long = "color" },
-        .takes_value = clap.Values.One,
+        .takes_value = clap.Values.one,
     },
     clap.Param(u8){
         .id = 'x',
@@ -83,7 +83,7 @@ pub const params = [_]clap.Param(u8){
     // Positionals
     clap.Param(u8){
         .id = '*',
-        .takes_value = clap.Values.Many,
+        .takes_value = clap.Values.many,
     },
 };
 
@@ -158,7 +158,7 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
 
     while (true) {
         switch (state) {
-            .Normal => if (parser.next(&diag) catch |err| {
+            .Normal => if (parser.next() catch |err| {
                 // Report useful error and exit
                 diag.report(std.io.getStdErr().writer(), err) catch {};
                 return err;

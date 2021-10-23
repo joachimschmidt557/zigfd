@@ -26,6 +26,8 @@ pub const TypeFilter = struct {
             .File => self.file,
             .UnixDomainSocket => false,
             .Whiteout => false,
+            .Door => false,
+            .EventPort => false,
             .Unknown => false,
         };
     }

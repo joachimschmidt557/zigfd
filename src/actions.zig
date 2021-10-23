@@ -55,7 +55,7 @@ pub const ExecuteTarget = struct {
         var child_process = try ChildProcess.init(self.cmd.items, self.allocator);
         defer child_process.deinit();
 
-        const term = try child_process.spawnAndWait();
+        _ = try child_process.spawnAndWait();
     }
 };
 
@@ -93,7 +93,7 @@ pub const ExecuteBatchTarget = struct {
         var child_process = try ChildProcess.init(self.cmd.items, self.allocator);
         defer child_process.deinit();
 
-        const term = try child_process.spawnAndWait();
+        _ = try child_process.spawnAndWait();
     }
 };
 
