@@ -14,12 +14,19 @@ const ColorOption = actions.ColorOption;
 const PrintOptions = actions.PrintOptions;
 
 pub const CliOptions = struct {
+    arena: *std.heap.ArenaAllocator,
     paths: []const []const u8,
     walkdir: walkdir.Options,
     filter: Filter,
     action: Action,
     color: ColorOption,
     print: PrintOptions,
+
+    pub fn deinit(self: *CliOptions) void {
+        const base_allocator = self.arena.child_allocator;
+        self.arena.deinit();
+        base_allocator.destroy(self.arena);
+    }
 };
 
 /// The command-line flags and options
@@ -117,11 +124,15 @@ pub fn valueText(param: clap.Param(u8)) []const u8 {
     };
 }
 
-pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
+pub fn parseCliOptions(base_allocator: *Allocator) !CliOptions {
+    const arena = try base_allocator.create(std.heap.ArenaAllocator);
+    arena.* = std.heap.ArenaAllocator.init(base_allocator);
+    errdefer arena.deinit();
+    const allocator = &arena.allocator;
+
     // We then initialize an argument iterator. We will use the OsIterator as it nicely
     // wraps iterating over arguments the most efficient way on each os.
     var iter = try clap.args.OsIterator.init(allocator);
-    defer iter.deinit();
 
     var diag: clap.Diagnostic = undefined;
 
@@ -136,11 +147,9 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
 
     // Filter
     var filter = Filter{};
-    errdefer filter.deinit();
 
     // Action
     var action = Action.default;
-    errdefer action.deinit();
 
     // Print options
     var color_option = ColorOption.default;
@@ -148,7 +157,6 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
 
     // Search paths
     var paths = ArrayList([]const u8).init(allocator);
-    errdefer paths.deinit();
 
     const ParseState = enum {
         Normal,
@@ -265,6 +273,7 @@ pub fn parseCliOptions(allocator: *Allocator) !CliOptions {
     }
 
     return CliOptions{
+        .arena = arena,
         .paths = paths.items,
         .walkdir = walk_options,
         .filter = filter,

@@ -92,9 +92,7 @@ pub fn main() !void {
         error.Help, error.ParseCliError => std.process.exit(1),
         else => return err,
     };
-    defer cli_options.filter.deinit();
-    defer cli_options.action.deinit();
-    defer allocator.free(cli_options.paths);
+    defer cli_options.deinit();
 
     // Set up colored output
     if (cli_options.color == .Always or cli_options.color == .Auto and stdout_file.isTty()) {
