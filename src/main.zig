@@ -67,7 +67,7 @@ pub fn main() !void {
     // const allocator = &arena.allocator;
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    const allocator = &gpa.allocator;
+    const allocator = gpa.allocator();
 
     // Set up stdout
     const stdout_file = std.io.getStdOut();

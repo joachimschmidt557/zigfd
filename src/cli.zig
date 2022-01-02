@@ -124,11 +124,11 @@ pub fn valueText(param: clap.Param(u8)) []const u8 {
     };
 }
 
-pub fn parseCliOptions(base_allocator: *Allocator) !CliOptions {
+pub fn parseCliOptions(base_allocator: Allocator) !CliOptions {
     const arena = try base_allocator.create(std.heap.ArenaAllocator);
     arena.* = std.heap.ArenaAllocator.init(base_allocator);
     errdefer arena.deinit();
-    const allocator = &arena.allocator;
+    const allocator = arena.allocator();
 
     // We then initialize an argument iterator. We will use the OsIterator as it nicely
     // wraps iterating over arguments the most efficient way on each os.
@@ -201,7 +201,7 @@ pub fn parseCliOptions(base_allocator: *Allocator) !CliOptions {
                         } else if (std.mem.eql(u8, "l", arg.value.?) or std.mem.eql(u8, "link", arg.value.?)) {
                             filter.types.?.symlink = true;
                         } else {
-                            std.log.emerg("'{s}' is not a valid type.", .{arg.value.?});
+                            std.log.err("'{s}' is not a valid type.", .{arg.value.?});
                             return error.ParseCliError;
                         }
                     },
@@ -217,7 +217,7 @@ pub fn parseCliOptions(base_allocator: *Allocator) !CliOptions {
                         } else if (std.mem.eql(u8, "never", arg.value.?)) {
                             color_option = .Never;
                         } else {
-                            std.log.emerg("'{s}' is not a valid color argument.", .{arg.value.?});
+                            std.log.err("'{s}' is not a valid color argument.", .{arg.value.?});
                             return error.ParseCliError;
                         }
                     },
@@ -268,7 +268,7 @@ pub fn parseCliOptions(base_allocator: *Allocator) !CliOptions {
         else => false,
     };
     if (no_command) {
-        std.log.emerg("Expected a command after -x or -X", .{});
+        std.log.err("Expected a command after -x or -X", .{});
         return error.ParseCliError;
     }
 

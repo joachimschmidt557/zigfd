@@ -32,12 +32,12 @@ pub const Action = union(ActionType) {
 };
 
 pub const ExecuteTarget = struct {
-    allocator: *Allocator,
+    allocator: Allocator,
     cmd: ArrayList([]const u8),
 
     const Self = @This();
 
-    pub fn init(allocator: *Allocator) Self {
+    pub fn init(allocator: Allocator) Self {
         return Self{
             .allocator = allocator,
             .cmd = ArrayList([]const u8).init(allocator),
@@ -61,12 +61,12 @@ pub const ExecuteTarget = struct {
 
 pub const ExecuteBatchTarget = struct {
     cmd: ArrayList([]const u8),
-    allocator: *Allocator,
+    allocator: Allocator,
     args: ArrayList(Entry),
 
     const Self = @This();
 
-    pub fn init(allocator: *Allocator) Self {
+    pub fn init(allocator: Allocator) Self {
         return Self{
             .cmd = ArrayList([]const u8).init(allocator),
             .allocator = allocator,
