@@ -130,16 +130,17 @@ pub fn parseCliOptions(base_allocator: Allocator) !CliOptions {
     errdefer arena.deinit();
     const allocator = arena.allocator();
 
-    // We then initialize an argument iterator. We will use the OsIterator as it nicely
-    // wraps iterating over arguments the most efficient way on each os.
-    var iter = try clap.args.OsIterator.init(allocator);
+    var iter = try std.process.ArgIterator.initWithAllocator(allocator);
+    defer iter.deinit();
 
-    var diag: clap.Diagnostic = undefined;
+    // Skip exe argument
+    _ = iter.next();
 
-    // Finally we can parse the arguments
-    var parser = clap.StreamingClap(u8, clap.args.OsIterator){
+    var diag = clap.Diagnostic{};
+    var parser = clap.StreamingClap(u8, std.process.ArgIterator){
         .params = &params,
         .iter = &iter,
+        .diagnostic = &diag,
     };
 
     // Walk options
@@ -247,7 +248,7 @@ pub fn parseCliOptions(base_allocator: Allocator) !CliOptions {
                     else => unreachable,
                 }
             } else break,
-            .Command => if (try iter.next()) |arg| {
+            .Command => if (iter.next()) |arg| {
                 if (std.mem.eql(u8, ";", arg)) {
                     state = .Normal;
                 } else {
