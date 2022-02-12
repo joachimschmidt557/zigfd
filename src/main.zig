@@ -1,9 +1,6 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
-// const Batch = std.event.Batch;
-// const Group = std.event.Group;
-// const Locked = std.event.Locked;
 
 const regex = @import("regex");
 const clap = @import("clap");
@@ -26,8 +23,6 @@ const cli = @import("cli.zig");
 
 const BufferedWriter = std.io.BufferedWriter(4096, std.fs.File.Writer);
 
-// pub const io_mode = .evented;
-
 inline fn handleEntry(
     e: Entry,
     f: Filter,
@@ -38,33 +33,23 @@ inline fn handleEntry(
     const matches = f.matches(e) catch false;
 
     defer switch (action.*) {
-        .ExecuteBatch => if (!matches) e.deinit(),
+        .execute_batch => if (!matches) e.deinit(),
         else => e.deinit(),
     };
 
     if (!matches) return;
 
-    // const held_action = locked_action.acquire();
-    // defer held_action.release();
-
     switch (action.*) {
-        .Print => {
-            // const held = locked_writer.acquire();
-            // defer held.release();
-
-            // const out = held.value.writer();
+        .print => {
             actions.printEntry(e, writer.writer(), print_options) catch return;
         },
-        .Execute => |*a| a.do(e) catch return,
-        .ExecuteBatch => |*a| a.do(e) catch return,
+        .execute => |*a| a.do(e) catch return,
+        .execute_batch => |*a| a.do(e) catch return,
     }
 }
 
 pub fn main() !void {
     // Set up allocators
-    // var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    // defer arena.deinit();
-    // const allocator = &arena.allocator;
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
@@ -76,15 +61,6 @@ pub fn main() !void {
     var buffered_stdout = std.io.bufferedWriter(stdout);
     defer buffered_stdout.flush() catch {};
 
-    // var buffered_stdout_locked = Locked(BufferedOut).init(buffered_stdout);
-    // defer buffered_stdout_locked.deinit();
-    // defer {
-    //     const held = buffered_stdout_locked.acquire();
-    //     defer held.release();
-
-    //     held.value.flush() catch {};
-    // }
-
     var lsc: ?LsColors = null;
     defer if (lsc) |*x| x.deinit();
 
@@ -95,7 +71,7 @@ pub fn main() !void {
     defer cli_options.deinit();
 
     // Set up colored output
-    if (cli_options.color == .Always or cli_options.color == .Auto and stdout_file.isTty()) {
+    if (cli_options.color == .always or cli_options.color == .auto and stdout_file.isTty()) {
         lsc = try LsColors.fromEnv(allocator);
         cli_options.print.color = &lsc.?;
     }
@@ -128,13 +104,10 @@ pub fn main() !void {
         }
     }
 
-    // Complete async group
-    // batch.wait();
-
     // If the action ExecuteBatch is chosen, we have to execute the action after
     // all entries have been found
     switch (cli_options.action) {
-        .ExecuteBatch => |*a| try a.finalize(),
+        .execute_batch => |*a| try a.finalize(),
         else => {},
     }
 }

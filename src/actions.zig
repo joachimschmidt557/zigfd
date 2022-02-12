@@ -8,24 +8,24 @@ const LsColors = @import("lscolors").LsColors;
 const Entry = @import("walkdir").Entry;
 
 pub const ActionType = enum {
-    Print,
-    Execute,
-    ExecuteBatch,
+    print,
+    execute,
+    execute_batch,
 };
 
 pub const Action = union(ActionType) {
-    Print,
-    Execute: ExecuteTarget,
-    ExecuteBatch: ExecuteBatchTarget,
+    print,
+    execute: ExecuteTarget,
+    execute_batch: ExecuteBatchTarget,
 
     const Self = @This();
 
-    pub const default: Self = .Print;
+    pub const default: Self = .print;
 
     pub fn deinit(self: *Self) void {
         switch (self.*) {
-            .Execute => |*x| x.deinit(),
-            .ExecuteBatch => |*x| x.deinit(),
+            .execute => |*x| x.deinit(),
+            .execute_batch => |*x| x.deinit(),
             else => {},
         }
     }
@@ -98,13 +98,13 @@ pub const ExecuteBatchTarget = struct {
 };
 
 pub const ColorOption = enum {
-    Auto,
-    Always,
-    Never,
+    auto,
+    always,
+    never,
 
     const Self = @This();
 
-    pub const default = Self.Auto;
+    pub const default = Self.auto;
 };
 
 pub const PrintOptions = struct {
@@ -129,8 +129,8 @@ pub fn printEntry(entry: Entry, writer: anytype, opt: PrintOptions) !void {
     }
 
     if (opt.null_sep) {
-        try writer.writeAll(&[_]u8{0});
+        try writer.writeByte(0);
     } else {
-        try writer.writeAll("\n");
+        try writer.writeByte('\n');
     }
 }

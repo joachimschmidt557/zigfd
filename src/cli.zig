@@ -118,7 +118,7 @@ pub fn valueText(param: clap.Param(u8)) []const u8 {
         'd' => "NUM",
         't' => "type",
         'e' => "ext",
-        'c' => "when",
+        'c' => "auto|always|never",
         '*' => "pattern/path",
         else => unreachable,
     };
@@ -212,11 +212,11 @@ pub fn parseCliOptions(base_allocator: Allocator) !CliOptions {
                     },
                     'c' => {
                         if (std.mem.eql(u8, "auto", arg.value.?)) {
-                            color_option = .Auto;
+                            color_option = .auto;
                         } else if (std.mem.eql(u8, "always", arg.value.?)) {
-                            color_option = .Always;
+                            color_option = .always;
                         } else if (std.mem.eql(u8, "never", arg.value.?)) {
-                            color_option = .Never;
+                            color_option = .never;
                         } else {
                             std.log.err("'{s}' is not a valid color argument.", .{arg.value.?});
                             return error.ParseCliError;
@@ -225,14 +225,14 @@ pub fn parseCliOptions(base_allocator: Allocator) !CliOptions {
                     'x' => {
                         action.deinit();
                         action = Action{
-                            .Execute = actions.ExecuteTarget.init(allocator),
+                            .execute = actions.ExecuteTarget.init(allocator),
                         };
                         state = .Command;
                     },
                     'X' => {
                         action.deinit();
                         action = Action{
-                            .ExecuteBatch = actions.ExecuteBatchTarget.init(allocator),
+                            .execute_batch = actions.ExecuteBatchTarget.init(allocator),
                         };
                         state = .Command;
                     },
@@ -253,8 +253,8 @@ pub fn parseCliOptions(base_allocator: Allocator) !CliOptions {
                     state = .Normal;
                 } else {
                     switch (action) {
-                        .Execute => |*x| try x.cmd.append(arg),
-                        .ExecuteBatch => |*x| try x.cmd.append(arg),
+                        .execute => |*x| try x.cmd.append(arg),
+                        .execute_batch => |*x| try x.cmd.append(arg),
                         else => unreachable, // We can only get to this state by -x or -X
                     }
                 }
@@ -264,8 +264,8 @@ pub fn parseCliOptions(base_allocator: Allocator) !CliOptions {
 
     // Providing an empty command is an error
     const no_command = switch (action) {
-        .Execute => |x| x.cmd.items.len == 0,
-        .ExecuteBatch => |x| x.cmd.items.len == 0,
+        .execute => |x| x.cmd.items.len == 0,
+        .execute_batch => |x| x.cmd.items.len == 0,
         else => false,
     };
     if (no_command) {
