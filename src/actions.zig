@@ -52,9 +52,7 @@ pub const ExecuteTarget = struct {
         try self.cmd.append(entry.relative_path);
         defer _ = self.cmd.pop();
 
-        var child_process = try ChildProcess.init(self.cmd.items, self.allocator);
-        defer child_process.deinit();
-
+        var child_process = ChildProcess.init(self.cmd.items, self.allocator);
         _ = try child_process.spawnAndWait();
     }
 };
@@ -90,9 +88,7 @@ pub const ExecuteBatchTarget = struct {
             try self.cmd.append(e.relative_path);
         }
 
-        var child_process = try ChildProcess.init(self.cmd.items, self.allocator);
-        defer child_process.deinit();
-
+        var child_process = ChildProcess.init(self.cmd.items, self.allocator);
         _ = try child_process.spawnAndWait();
     }
 };
