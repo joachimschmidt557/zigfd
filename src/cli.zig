@@ -201,6 +201,10 @@ pub fn parseCliOptions(base_allocator: Allocator) !CliOptions {
                             filter.types.?.directory = true;
                         } else if (std.mem.eql(u8, "l", arg.value.?) or std.mem.eql(u8, "link", arg.value.?)) {
                             filter.types.?.symlink = true;
+                        } else if (std.mem.eql(u8, "s", arg.value.?) or std.mem.eql(u8, "socket", arg.value.?)) {
+                            filter.types.?.socket = true;
+                        } else if (std.mem.eql(u8, "p", arg.value.?) or std.mem.eql(u8, "pipe", arg.value.?)) {
+                            filter.types.?.pipe = true;
                         } else {
                             std.log.err("'{s}' is not a valid type.", .{arg.value.?});
                             return error.ParseCliError;

@@ -11,20 +11,24 @@ pub const TypeFilter = struct {
     file: bool = false,
     directory: bool = false,
     symlink: bool = false,
-    executable: bool = false,
-    empty: bool = false,
+    socket: bool = false,
+    pipe: bool = false,
+
+    // only_executable: bool = false,
+    // only_empty: bool = false,
 
     const Self = @This();
 
     pub fn matches(self: Self, entry: Entry) bool {
         return switch (entry.kind) {
-            .BlockDevice => false,
-            .CharacterDevice => false,
             .Directory => self.directory,
-            .NamedPipe => false,
             .SymLink => self.symlink,
             .File => self.file,
-            .UnixDomainSocket => false,
+            .UnixDomainSocket => self.socket,
+            .NamedPipe => self.pipe,
+
+            .BlockDevice => false,
+            .CharacterDevice => false,
             .Whiteout => false,
             .Door => false,
             .EventPort => false,
