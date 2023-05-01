@@ -1,6 +1,3 @@
-[submodule "zig-lscolors"]
-	path = zig-lscolors
-	url = https://github.com/ziglibs/zig-lscolors
 [submodule "zig-regex"]
 	path = zig-regex
 	url = https://github.com/tiehuis/zig-regex
