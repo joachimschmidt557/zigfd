@@ -1,0 +1,23 @@
+.{
+    .name = "zigfd",
+    .version = "0.0.0",
+
+    .dependencies = .{
+        .lscolors = .{
+            .url = "https://github.com/ziglibs/lscolors/archive/2cfabf04872ce334fd1f2cd392fda8a4fab68663.tar.gz",
+            .hash = "1220a67d785f399e9d2e0a68bb171a66389afbcb4370b3a64b19e0857ae089f313df",
+        },
+        .walkdir = .{
+            .url = "https://github.com/joachimschmidt557/zig-walkdir/archive/c9190dbfc34d5dbe449bcd2146bfd5649d3fe362.tar.gz",
+            .hash = "12205711fee8ee1154ff01076b79f4796d0c66fdad222bdc109650e93afb27f9a1d4",
+        },
+        .clap = .{
+            .url = "https://github.com/Hejsil/zig-clap/archive/05a50fe7fe833059db8550c34bc69fedd8bb0af8.tar.gz",
+            .hash = "12201b9998ae15edcf8f348e69531d650ad4983a94f442d3c228f4171a62e8ec8bf2",
+        },
+        .regex = .{
+            .url = "https://github.com/tiehuis/zig-regex/archive/70afaabdf372de130f7d22a1d9000e99ef3ff9b9.tar.gz",
+            .hash = "12206cdb3a78f4c0c21ec8b2c2f39c0871eada7147adebbec7569c5c71712c4adaa0",
+        },
+    },
+}
